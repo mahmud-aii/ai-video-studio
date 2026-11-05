@@ -19,10 +19,10 @@ jobs:
           pip install -q playwright edge-tts pillow numpy
           playwright install chromium
 
-      - name: 🚀 3. الرندر الهجين فائق السرعة (5 طبقات + 8 ثوانٍ تحريك)
+      - name: 🚀 3. الرندر الهجين فائق السرعة (5 طبقات + 5 ثوانٍ تحريك)
         run: |
           cat << 'EOF' > build_studio.py
-          import os, subprocess, time
+          import os, subprocess, time, wave, math
           import numpy as np
           from pathlib import Path
           from PIL import Image, ImageDraw
@@ -42,14 +42,15 @@ jobs:
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "raw_voice.mp3",
               "-af", "equalizer=f=120:width_type=o:width=2:g=4.5,equalizer=f=3500:width_type=o:width=2:g=2.5,acompressor=threshold=-16dB:ratio=3:attack=5:release=50:makeup=3dB",
-              "voice_mastered.wav"
+              "-ar", "44100", "-ac", "1", "voice_mastered.wav"
           ], check=True)
 
-          dur_out = subprocess.check_output([
-              "ffprobe", "-v", "error", "-show_entries", "format=duration",
-              "-of", "default=noprint_wrappers=1:nokey=1", "voice_mastered.wav"
-          ]).decode().strip()
-          duration = float(dur_out) + 1.0
+          with wave.open("voice_mastered.wav", "rb") as wf:
+              n_samples = wf.getnframes()
+              audio_rate = wf.getframerate()
+              raw_pcm = np.frombuffer(wf.readframes(n_samples), dtype=np.int16).astype(np.float32) / 32768.0
+
+          duration = (n_samples / audio_rate) + 1.0
           fps = 30
           total_frames = int(duration * fps)
 
@@ -58,7 +59,7 @@ jobs:
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
               "-i", f"aevalsrc='0.035*sin(2*PI*65*t)+0.025*sin(2*PI*97.5*t)+0.015*sin(2*PI*130*t)':s=44100:d={duration}",
-              "-af", f"afade=t=in:st=0:d=1.0,afade=t=out:st={duration-1.5}:d=1.5",
+              "-af", f"afade=t=in:st=0:d=1.0,afade=t=out:st={duration-1.2}:d=1.2",
               "ambient.wav"
           ], check=True)
 
@@ -71,7 +72,7 @@ jobs:
 
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-              "-i", "voice_mastered.wav", "-i", "ambient.wav", "-i", "whoosh.wav",
+              "-i", "ambient.wav", "-i", "voice_mastered.wav", "-i", "whoosh.wav",
               "-filter_complex",
               "[2:a]adelay=200|200[w0];[2:a]adelay=1300|1300[w1];[2:a]adelay=2800|2800[w2];[2:a]adelay=4300|4300[w3];"
               "[0:a][1:a][w0][w1][w2][w3]amix=inputs=6:duration=first:dropout_transition=0,volume=2.2[aout]",
@@ -127,10 +128,10 @@ jobs:
             #footer {
               width: 930px; background: rgba(15,23,42,0.95);
               border: 2px solid rgba(255,255,255,0.2); border-radius: 30px;
-              padding: 28px 42px; display: flex; align-items: center; justify-content: space-between;
+              padding: 26px 42px; display: flex; align-items: center; justify-content: space-between;
             }
             .status-text { font-size: 30px; font-weight: 800; color: #e2e8f0; }
-            .counter-num { font-size: 38px; font-weight: 900; color: #38bdf8; }
+            .counter-num { font-size: 36px; font-weight: 900; color: #38bdf8; }
           </style>
           </head>
           <body>
@@ -192,7 +193,6 @@ jobs:
           b = (17 + 8*(1-d1) + 85*(1-d2)).clip(0, 255).astype(np.uint8)
           bg_img = Image.fromarray(np.stack([r, g, b], axis=-1), "RGB").convert("RGBA")
 
-          # رسم شبكة هندسية خفيفة على الخلفية
           grid_draw = ImageDraw.Draw(bg_img)
           for gx in range(0, W, 72):
               grid_draw.line([(gx, 0), (gx, H)], fill=(255, 255, 255, 12), width=1)
@@ -226,7 +226,7 @@ jobs:
               "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", str(fps), "-i", "-",
               "-i", "final_audio.aac", "-c:v", "libx264", "-preset", "ultrafast",
               "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "copy",
-              "-shortest", "Studio_Master_Reel.mp4"
+              "Studio_Master_Reel.mp4"
           ], stdin=subprocess.PIPE)
 
           t0 = time.time()
@@ -234,35 +234,55 @@ jobs:
               t = i / fps
               frame = bg_img.copy()
 
-              # تحريك الهيدر
               p_h = ease_back((t - 0.1) / 0.65)
               a_h = float(np.clip((t - 0.1) / 0.4, 0, 1))
-              paste_layer(frame, img_header, 75, 110 - int((1 - p_h) * 80), a_h)
+              paste_layer(frame, img_header, 75, 95 - int((1 - p_h) * 80), a_h)
 
-              # تحريك الكروت الثلاثة
-              for idx, (card_img, delay, base_y) in enumerate([(img_c1, 1.3, 520), (img_c2, 2.8, 880), (img_c3, 4.3, 1240)]):
+              for idx, (card_img, delay, base_y) in enumerate([(img_c1, 1.3, 490), (img_c2, 2.8, 835), (img_c3, 4.3, 1180)]):
                   p_c = ease_back((t - delay) / 0.7)
                   a_c = float(np.clip((t - delay) / 0.35, 0, 1))
                   cx = 75 + int((1 - p_c) * 350)
                   if -400 < cx < W:
                       paste_layer(frame, card_img, max(0, cx), base_y, a_c)
 
-              # تحريك الفوتر وشريط التقدم المضيء
               p_f = ease_back((t - 0.8) / 0.6)
               a_f = float(np.clip((t - 0.8) / 0.4, 0, 1))
-              paste_layer(frame, img_footer, 75, 1650 + int((1 - p_f) * 70), a_f)
+              paste_layer(frame, img_footer, 75, 1660 + int((1 - p_f) * 70), a_f)
 
-              # شريط تقدم برتقالي سفلي حي
+              # موجات صوتية تفاعلية حية (Audio Visualizer) + شريط التقدم
               dr = ImageDraw.Draw(frame)
-              prog_w = int(930 * (i / max(1, total_frames - 1)))
-              dr.rounded_rectangle([75, 1815, 1005, 1829], radius=7, fill=(255, 255, 255, 45))
-              dr.rounded_rectangle([75, 1815, 75 + max(15, prog_w), 1829], radius=7, fill=(249, 115, 22, 255))
+              s_idx = int(t * audio_rate)
+              chunk = raw_pcm[s_idx : s_idx + 1400] if s_idx < len(raw_pcm) else np.zeros(100)
+              rms = float(np.sqrt(np.mean(chunk**2))) if len(chunk) > 0 else 0.0
+              energy = min(1.0, rms * 6.5)
 
-              ffmpeg_proc.stdin.write(frame.tobytes())
+              num_bars = 28
+              bar_w, gap = 16, 10
+              start_x = (W - (num_bars * (bar_w + gap))) // 2
+              for b in range(num_bars):
+                  wave_mod = 0.35 + 0.65 * abs(math.sin(t * 9.0 + b * 0.45))
+                  bh = max(12, min(85, int(12 + 75 * energy * wave_mod)))
+                  bx = start_x + b * (bar_w + gap)
+                  by_bar = 1585 - bh // 2
+                  col = (249, 115, 22, 230) if b % 2 == 0 else (56, 189, 248, 230)
+                  dr.rounded_rectangle([bx, by_bar, bx + bar_w, by_bar + bh], radius=8, fill=col)
+
+              prog_w = int(930 * (i / max(1, total_frames - 1)))
+              dr.rounded_rectangle([75, 1820, 1005, 1834], radius=7, fill=(255, 255, 255, 45))
+              dr.rounded_rectangle([75, 1820, 75 + max(15, prog_w), 1834], radius=7, fill=(249, 115, 22, 255))
+
+              try:
+                  ffmpeg_proc.stdin.write(frame.tobytes())
+              except BrokenPipeError:
+                  break
+
               if i % 60 == 0 or i == total_frames - 1:
                   print(f"⚡ تقدم الرندر: {i+1}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
 
-          ffmpeg_proc.stdin.close()
+          try:
+              ffmpeg_proc.stdin.close()
+          except Exception:
+              pass
           ffmpeg_proc.wait()
           print("✅ اكتمل إنتاج الفيديو السينمائي بنجاح ساحق!", flush=True)
           EOF
