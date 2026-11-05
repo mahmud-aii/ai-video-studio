@@ -1,204 +1,247 @@
-captions_timeline = [
-              ("cap0", "الفيديو الماضي كان على خلفية", "بتشبه لون شعري ولون بشرتي 🎨", "0.0, 4.75"),
-              ("cap1", "عم حاول هلق أصور", "على خلفية بيضاء صافية ⚪", "4.75, 7.85"),
-              ("cap2", "حطيت فاصل صامت لأشوفك", "إذا رح تعرف تقصه أو لا ✂️", "7.85, 11.95"),
-              ("cap3", "بدي إياك تحط الكابشن", "تماماً هون بأسفل الشاشة! 👇", "11.95, 15.15"),
-              ("cap4", "ولا تنسى النص الفوقاني", "تحط فيه ما يناسب الكلام 🔝", "15.15, 18.95"),
-              ("cap5", "تم قص الخطأ والإعادة..", "وخلينا نشوف شو طلع معك! 🔥", "18.95, 22.80")
+name: 🎬 Smart 3-Zone AI Video Studio
+
+on:
+  push:
+    branches: [ main ]
+  release:
+    types: [ published, edited ]
+  workflow_dispatch:
+
+jobs:
+  smart_edit_reel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 1. تجهيز السيرفر السحابي
+        uses: actions/checkout@v4
+
+      - name: ⚙️ 2. تثبيت محركات العزل البصري والصوتيات
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          pip install -q "rembg[cpu]" onnxruntime playwright pillow numpy opencv-python-headless requests
+          playwright install chromium
+
+      - name: 🚀 3. عزل الخلفية النقي + الكروت المصورة + الكابشن + المؤثرات
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat << 'EOF' > run_studio.py
+          import os, glob, subprocess, time, math, urllib.request
+          import numpy as np
+          import cv2, requests
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+          from rembg import remove, new_session
+          from playwright.sync_api import sync_playwright
+
+          os.makedirs("ui_layers", exist_ok=True)
+          os.makedirs("assets", exist_ok=True)
+          input_video = None
+
+          repo = os.environ.get("GH_REPO", "")
+          token = os.environ.get("GH_TOKEN", "")
+          headers = {"Authorization": f"token {token}"} if token else {}
+          try:
+              r = requests.get(f"https://api.github.com/repos/{repo}/releases", headers=headers, timeout=15)
+              if r.status_code == 200:
+                  for rel in r.json():
+                      for a in rel.get("assets", []):
+                          if a.get("name", "").lower().endswith((".mp4", ".mov", ".mkv")):
+                              urllib.request.urlretrieve(a["browser_download_url"], "raw_input.mp4")
+                              input_video = "raw_input.mp4"
+                              break
+                      if input_video: break
+          except Exception as e:
+              print("Releases check:", e, flush=True)
+
+          if not input_video or not os.path.exists(input_video):
+              vids = [f for f in glob.glob("*.mp4") if "Smart_" not in f and "clean_" not in f]
+              if vids: input_video = vids[0]
+          if not input_video:
+              raise FileNotFoundError("ارفع الفيديو في قسم Releases أولاً")
+
+          imgs = {
+              "p1": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=85",
+              "p2": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=300&q=85",
+              "p3": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=300&q=85"
+          }
+          for k, u in imgs.items():
+              try:
+                  req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+                  Path(f"assets/{k}.jpg").write_bytes(urllib.request.urlopen(req, timeout=10).read())
+              except Exception:
+                  Image.new("RGB", (300, 300), (30, 41, 59)).save(f"assets/{k}.jpg")
+
+          p1_u, p2_u, p3_u = [Path(f"assets/{k}.jpg").resolve().as_uri() for k in ("p1", "p2", "p3")]
+
+          raw_dur = float(subprocess.check_output([
+              "ffprobe", "-v", "error", "-show_entries", "format=duration",
+              "-of", "default=noprint_wrappers=1:nokey=1", input_video
+          ]).decode().strip())
+
+          # إذا كان الفيديو أطول من 20 ثانية (فيديو الخلفية البيضاء مع السكتات) يقص الصمت تلقائياً، وإلا يقص عند 16.4 ثانية
+          if raw_dur > 20.5:
+              subprocess.run([
+                  "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", input_video,
+                  "-vf", "scale=820:1100:force_original_aspect_ratio=increase,crop=820:1100,fps=30",
+                  "-af", "silenceremove=stop_periods=-1:stop_duration=0.45:stop_threshold=-32dB,highpass=f=80,equalizer=f=130:width_type=o:width=2:g=3.5,acompressor=threshold=-18dB:ratio=3:makeup=4dB",
+                  "-ar", "48000", "-ac", "2", "work_video.mp4"
+              ], check=True)
+              captions_tl = [
+                  ("cap0", "الفيديو الماضي كان على خلفية", "بتشبه لون شعري ولون بشرتي 🎨", 0.0, 4.5),
+                  ("cap1", "عم حاول هلق أصور", "على خلفية بيضاء صافية ⚪", 4.5, 7.8),
+                  ("cap2", "حطيت فاصل صامت لأشوفك", "إذا رح تعرف تقصه أو لا ✂️", 7.8, 11.8),
+                  ("cap3", "بدي إياك تحط الكابشن", "تماماً هون بأسفل الشاشة! 👇", 11.8, 15.0),
+                  ("cap4", "ولا تنسى النص الفوقاني", "تحط فيه ما يناسب الكلام 🔝", 15.0, 18.8),
+                  ("cap5", "تم قص الخطأ والصمت..", "وخلينا نشوف شو طلع معك! 🔥", 18.8, 25.0)
+              ]
+          else:
+              subprocess.run([
+                  "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", input_video, "-t", "16.4",
+                  "-vf", "scale=820:1100:force_original_aspect_ratio=increase,crop=820:1100,fps=30",
+                  "-af", "highpass=f=80,equalizer=f=130:width_type=o:width=2:g=3.5,acompressor=threshold=-18dB:ratio=3:makeup=4dB",
+                  "-ar", "48000", "-ac", "2", "work_video.mp4"
+              ], check=True)
+              captions_tl = [
+                  ("cap0", "طيب هذا الفيديو لاختبار", "الذكاء الاصطناعي 🤖", 0.0, 2.3),
+                  ("cap1", "ورح نشوف كيف رح يمنّتج لي", "هذا الفيديو تلقائياً 🎬", 2.3, 4.5),
+                  ("cap2", "هون رح يحط لكم", "شي رائع جداً ✨", 4.5, 6.8),
+                  ("cap3", "وهون رح يبهركم", "فيه أكثر وأكثر 🚀", 6.8, 9.0),
+                  ("cap4", "وهون رح ينزل عندكم", "الكابشن التفاعلي 💬", 9.0, 11.1),
+                  ("cap5", "وأكيد الخلفية", "رح تتغير بالكامل 🌌", 11.1, 16.5)
+              ]
+
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "work_video.mp4", "-vn", "voice.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.32:c=pink:r=48000:a=0.42", "-af", "bandpass=f=850:width_type=h:w=550,afade=t=in:st=0:d=0.08,afade=t=out:st=0.14:d=0.18", "-ar", "48000", "-ac", "2", "whoosh.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.55*sin(2*PI*(520+600*t)*t)*exp(-18*t)':s=48000:d=0.25", "-ar", "48000", "-ac", "2", "pop.wav"], check=True)
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "voice.wav", "-i", "whoosh.wav", "-i", "pop.wav",
+              "-filter_complex", "[1:a]adelay=200|200[w1];[2:a]adelay=4500|4500[p1];[2:a]adelay=6800|6800[p2];[1:a]adelay=9000|9000[w2];[2:a]adelay=11100|11100[p3];[0:a][w1][p1][p2][w2][p3]amix=inputs=6:duration=first:weights='2.2 0.9 1.2 1.2 0.9 1.2'[a]",
+              "-map", "[a]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"
+          ], check=True)
+
+          top_data = [
+              ("top0", "🎨 01 • معالجة ذكية للصورة", "عزل خلفية نقي بدون هالة", "فصل دقيق للشعر واللحية مع إضاءة محيطية", p1_u, "#facc15"),
+              ("top1", "🚀 02 • استوديو 24.ofis السحابي", "مشاهد مصورة تفاعلية حية", "دمج الصور والمؤثرات الصوتية بالجزء من الثانية", p2_u, "#38bdf8"),
+              ("top2", "✂️ 03 • مونتاج أوتوماتيكي 100%", "قص الصمت والأخطاء تلقائياً", "يعمل بالخلفية على مدار الساعة بتكلفة 0$", p3_u, "#10b981")
           ]
 
-          caps_html = ""
-          for cid, l1, l2, _ in captions_timeline:
-              caps_html += f'<div id="{cid}" class="bot-cap"><div class="c1">{l1}</div><div class="c2">{l2}</div></div>'
+          cards_h = "".join([f'<div id="{tid}" class="tcard" style="border-right-color:{col}"><img class="timg" style="border-color:{col}" src="{uri}"/><div><span class="ttag" style="color:{col}">{tag}</span><div class="ttit">{tit}</div><div class="tsub">{sub}</div></div></div>' for tid, tag, tit, sub, uri, col in top_data])
+          caps_h = "".join([f'<div id="{cid}" class="bcap"><div class="c1">{l1}</div><div class="c2">{l2}</div></div>' for cid, l1, l2, _, _ in captions_tl])
 
-          html_ui = f"""<!DOCTYPE html>
-          <html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+          html = f"""<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
           <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
           <style>
-            * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-            body {{ background: transparent; font-family: 'Cairo', sans-serif; color: #fff; width: 1080px; padding: 20px; }}
-            .top-card {{
-              width: 960px; padding: 26px 32px; margin-bottom: 35px;
-              background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(9,13,24,0.98));
-              border: 2.5px solid rgba(250,204,21,0.45); border-right: 12px solid #facc15;
-              border-radius: 34px; display: flex; align-items: center; gap: 28px;
-              box-shadow: 0 22px 45px rgba(0,0,0,0.8);
-            }}
-            .top-card.cyan {{ border-right-color: #38bdf8; border-color: rgba(56,189,248,0.45); }}
-            .top-card.green {{ border-right-color: #10b981; border-color: rgba(16,185,129,0.45); }}
-            .t-img {{ width: 135px; height: 135px; border-radius: 24px; object-fit: cover; border: 3px solid #facc15; flex-shrink: 0; }}
-            .cyan .t-img {{ border-color: #38bdf8; }}
-            .green .t-img {{ border-color: #10b981; }}
-            .t-tag {{ font-size: 22px; font-weight: 800; color: #facc15; margin-bottom: 6px; display: block; }}
-            .cyan .t-tag {{ color: #38bdf8; }}
-            .green .t-tag {{ color: #34d399; }}
-            .t-title {{ font-size: 38px; font-weight: 900; color: #fff; line-height: 1.25; margin-bottom: 8px; }}
-            .t-sub {{ font-size: 25px; font-weight: 700; color: #cbd5e1; }}
-            .bot-cap {{
-              width: 960px; padding: 20px 34px; margin-bottom: 30px;
-              background: rgba(9, 13, 24, 0.94); border: 3px solid rgba(255,255,255,0.22);
-              border-bottom: 9px solid #facc15; border-radius: 32px; text-align: center;
-              box-shadow: 0 20px 45px rgba(0,0,0,0.9);
-            }}
-            .c1 {{ font-size: 36px; font-weight: 800; color: #f8fafc; line-height: 1.25; }}
-            .c2 {{ font-size: 44px; font-weight: 900; color: #facc15; line-height: 1.3; }}
+            * {{ box-sizing:border-box; margin:0; padding:0; }}
+            body {{ background:transparent; font-family:'Cairo',sans-serif; color:#fff; width:1080px; padding:20px; }}
+            .tcard {{ width:960px; padding:24px 30px; margin-bottom:30px; background:linear-gradient(135deg,rgba(15,23,42,0.96),rgba(9,13,24,0.98)); border:2.5px solid rgba(255,255,255,0.18); border-right:12px solid #facc15; border-radius:34px; display:flex; align-items:center; gap:26px; box-shadow:0 20px 45px rgba(0,0,0,0.85); }}
+            .timg {{ width:130px; height:130px; border-radius:22px; object-fit:cover; border:3px solid #facc15; flex-shrink:0; }}
+            .ttag {{ font-size:21px; font-weight:800; display:block; margin-bottom:6px; }}
+            .ttit {{ font-size:36px; font-weight:900; color:#fff; line-height:1.2; margin-bottom:6px; }}
+            .tsub {{ font-size:24px; font-weight:700; color:#cbd5e1; }}
+            .fcard {{ width:430px; padding:16px 20px; margin-bottom:25px; background:rgba(15,23,42,0.95); border:3px solid #f97316; border-radius:26px; display:flex; align-items:center; gap:16px; box-shadow:0 18px 40px rgba(0,0,0,0.85); }}
+            .fimg {{ width:84px; height:84px; border-radius:18px; object-fit:cover; border:2px solid #f97316; }}
+            .bcap {{ width:960px; padding:18px 32px; margin-bottom:25px; background:rgba(9,13,24,0.95); border:2.5px solid rgba(250,204,21,0.45); border-bottom:8px solid #facc15; border-radius:30px; text-align:center; box-shadow:0 18px 40px rgba(0,0,0,0.9); }}
+            .c1 {{ font-size:34px; font-weight:800; color:#f8fafc; }}
+            .c2 {{ font-size:42px; font-weight:900; color:#facc15; }}
           </style></head><body>
-            <div id="top0" class="top-card">
-              <img class="t-img" src="{p1_uri}"/>
-              <div><span class="t-tag">🎨 01 • معالجة التباين اللوني</span><div class="t-title">تجاوز مشكلة الخلفية البيج السابقة</div><div class="t-sub">فصل ذكي للون البشرة والشعر عن الخلفية</div></div>
-            </div>
-            <div id="top1" class="top-card cyan">
-              <img class="t-img" src="{p2_uri}"/>
-              <div><span class="t-tag">⚪ 02 • الخلفية البيضاء الصافية</span><div class="t-title">عزل نقي 100% بدون هالة بيضاء</div><div class="t-sub">تنظيف تلقائي لأطراف الشعر واللحية (Alpha Choke)</div></div>
-            </div>
-            <div id="top2" class="top-card green">
-              <img class="t-img" src="{p3_uri}"/>
-              <div><span class="t-tag">✂️ 03 • قص الصمت التلقائي</span><div class="t-title">تم حذف الفاصل الصامت بنجاح!</div><div class="t-sub">اكتشاف السكتات ودمج الجمل بسلاسة تامة</div></div>
-            </div>
-            <div id="top3" class="top-card">
-              <img class="t-img" src="{p1_uri}"/>
-              <div><span class="t-tag">👇 04 • تمركز الكابشن السفلي</span><div class="t-title">الكابشن مثبت بأسفل الشاشة تماماً</div><div class="t-sub">متزامن كلمة بكلمة مع حركة يدك وصوتك</div></div>
-            </div>
-            <div id="top4" class="top-card cyan">
-              <img class="t-img" src="{p2_uri}"/>
-              <div><span class="t-tag">🔝 05 • المسرح التفاعلي العلوي</span><div class="t-title">نصوص وصور تتغير حسب سياق كلامك</div><div class="t-sub">كل جملة تنطقها يظهر فوقها الكرت المناسب لها</div></div>
-            </div>
-            <div id="top5" class="top-card green">
-              <img class="t-img" src="{p3_uri}"/>
-              <div><span class="t-tag">🔥 06 • قص الأخطاء والإعادة</span><div class="t-title">تم حذف اللعثمة وإعادة الجملة تلقائياً</div><div class="t-sub">مونتاج كامل جاهز للنشر الفوري بتكلفة 0$</div></div>
-            </div>
-            {caps_html}
+            {cards_h}
+            <div id="fc1" class="fcard"><img class="fimg" src="{p1_u}"/><div><div style="color:#fb923c;font-size:18px;font-weight:900">👆 تتبع اليد • AI</div><div style="font-size:26px;font-weight:900">شي رائع جداً!</div></div></div>
+            <div id="fc2" class="fcard" style="border-color:#38bdf8"><img class="fimg" style="border-color:#38bdf8" src="{p2_u}"/><div><div style="color:#38bdf8;font-size:18px;font-weight:900">🚀 إبهار بصري</div><div style="font-size:26px;font-weight:900">صور ومؤثرات حية</div></div></div>
+            {caps_h}
           </body></html>"""
 
-          Path("ui.html").write_text(html_ui, encoding="utf-8")
-          ui_ids = [f"top{k}" for k in range(6)] + [c[0] for c in captions_timeline]
+          Path("ui.html").write_text(html, encoding="utf-8")
+          all_ids = ["top0", "top1", "top2", "fc1", "fc2"] + [c[0] for c in captions_tl]
           with sync_playwright() as p:
-              browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
-              page = browser.new_page(viewport={"width": 1080, "height": 4200})
-              page.goto(f"file://{os.path.abspath('ui.html')}", wait_until="networkidle")
-              page.wait_for_timeout(600)
-              for uid in ui_ids:
-                  page.locator(f"#{uid}").screenshot(path=f"ui_layers/{uid}.png", omit_background=True)
-              browser.close()
+              b = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
+              pg = b.new_page(viewport={"width": 1080, "height": 4000})
+              pg.goto(f"file://{os.path.abspath('ui.html')}", wait_until="networkidle")
+              pg.wait_for_timeout(500)
+              for uid in all_ids:
+                  pg.locator(f"#{uid}").screenshot(path=f"ui_layers/{uid}.png", omit_background=True)
+              b.close()
 
-          ui = {uid: Image.open(f"ui_layers/{uid}.png").convert("RGBA") for uid in ui_ids}
+          ui = {uid: Image.open(f"ui_layers/{uid}.png").convert("RGBA") for uid in all_ids}
+          W, H, SW, SH = 1080, 1920, 820, 1100
+          y_i, x_i = np.ogrid[:H, :W]
+          gl1 = np.clip(1.0 - np.sqrt((x_i - W*0.5)**2 + (y_i - 1250)**2) / 600.0, 0, 1)
+          bg1 = Image.fromarray(np.stack([(10+22*gl1).astype(np.uint8), (14+42*gl1).astype(np.uint8), (24+85*gl1).astype(np.uint8)], axis=-1), "RGB").convert("RGBA")
+          bg2 = Image.fromarray(np.stack([(12+95*gl1).astype(np.uint8), (14+45*gl1).astype(np.uint8), (24+15*gl1).astype(np.uint8)], axis=-1), "RGB").convert("RGBA")
+          for bg_im, col_l in [(bg1, (255,255,255,18)), (bg2, (250,204,21,28))]:
+              dr = ImageDraw.Draw(bg_im)
+              for gx in range(60, W, 64): dr.line([(gx, 0), (gx, H)], fill=col_l, width=1)
+              for gy in range(60, H, 64): dr.line([(0, gy), (W, gy)], fill=col_l, width=1)
 
-          W, H = 1080, 1920
-          SW, SH = 860, 1180
-          y_idx, x_idx = np.ogrid[:H, :W]
-          glow = np.clip(1.0 - np.sqrt((x_idx - W*0.5)**2 + (y_idx - 1250)**2) / 620.0, 0, 1)
-          bg_arr = np.stack([
-              (10 + 25 * glow).astype(np.uint8),
-              (14 + 45 * glow).astype(np.uint8),
-              (24 + 85 * glow).astype(np.uint8)
-          ], axis=-1)
-          bg_base = Image.fromarray(bg_arr, "RGB").convert("RGBA")
-          bg_dr = ImageDraw.Draw(bg_base)
-          for gx in range(60, W, 64):
-              for gy in range(60, H, 64):
-                  bg_dr.ellipse([gx-1, gy-1, gx+1, gy+1], fill=(255, 255, 255, 20))
-
-          def ease_back(x):
+          def ease_b(x):
               x = float(np.clip(x, 0.0, 1.0))
-              return 1.0 + 2.3 * ((x - 1.0) ** 3) + 1.3 * ((x - 1.0) ** 2)
+              return 1.0 + 2.2 * ((x - 1.0)**3) + 1.2 * ((x - 1.0)**2)
 
-          def paste_ui(canvas, img, cx, cy, scale=1.0, alpha=1.0):
-              if alpha <= 0.01 or scale <= 0.1:
-                  return
-              work = img
-              if abs(scale - 1.0) > 0.01:
-                  work = work.resize((max(10, int(work.width*scale)), max(10, int(work.height*scale))), Image.Resampling.BILINEAR)
-              if alpha < 0.99:
-                  work = work.copy()
-                  work.putalpha(work.getchannel("A").point(lambda p: int(p * alpha)))
-              canvas.paste(work, (int(cx - work.width/2), int(cy - work.height/2)), work)
+          def put_img(cv_im, im, cx, cy, sc=1.0):
+              w = im if abs(sc-1.0)<0.01 else im.resize((max(10,int(im.width*sc)), max(10,int(im.height*sc))), Image.Resampling.BILINEAR)
+              cv_im.paste(w, (int(cx - w.width/2), int(cy - w.height/2)), w)
 
-          vid_list = [f for f in ["trimmed_video.mp4", "clean_video.mp4", "speaker_crop.mp4"] if os.path.exists(f)]
-          work_vid = vid_list[0] if vid_list else "raw_input.mp4"
-          aud_list = [f for f in ["final_audio.aac", "clean_audio.aac", "voice_clean.wav"] if os.path.exists(f)]
-          work_aud = aud_list[0] if aud_list else work_vid
-
-          session = new_session("u2net_human_seg")
-          cap = cv2.VideoCapture(work_vid)
+          sess = new_session("u2net_human_seg")
+          cap = cv2.VideoCapture("work_video.mp4")
           fps = 30
-          total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-          ffmpeg_proc = subprocess.Popen([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-              "-f", "rawvideo", "-vcodec", "rawvideo",
-              "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", str(fps), "-i", "-",
-              "-i", work_aud, "-c:v", "libx264", "-preset", "superfast",
-              "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "320k",
-              "-shortest", "Smart_Edited_Reel.mp4"
+          proc = subprocess.Popen([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-vcodec", "rawvideo",
+              "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", "30", "-i", "-", "-i", "final_audio.aac",
+              "-c:v", "libx264", "-preset", "superfast", "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy", "-shortest", "Smart_Edited_Reel.mp4"
           ], stdin=subprocess.PIPE)
 
-          erode_k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-          last_m, smooth_m = None, None
-          t0 = time.time()
-          frame_idx = 0
-
+          ek = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+          last_m, sm_m, idx = None, None, 0
           while True:
               ret, bgr = cap.read()
-              if not ret:
-                  break
-              t = frame_idx / fps
-              bgr_s = cv2.resize(bgr, (SW, SH))
-              rgb = cv2.cvtColor(bgr_s, cv2.COLOR_BGR2RGB)
+              if not ret: break
+              t = idx / fps
+              rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+              if idx % 2 == 0 or last_m is None:
+                  raw_m = np.array(remove(Image.fromarray(cv2.resize(rgb, (300, 400))), session=sess, only_mask=True), dtype=np.float32) / 255.0
+                  last_m = np.clip((raw_m - 0.46) / 0.45, 0.0, 1.0)
+              sm_m = last_m if sm_m is None else (0.75 * last_m + 0.25 * sm_m)
+              mf = cv2.resize(sm_m, (SW, SH), interpolation=cv2.INTER_LINEAR)
+              luma = (0.299*rgb[...,0] + 0.587*rgb[...,1] + 0.114*rgb[...,2]) / 255.0
+              mf[(mf > 0.05) & (mf < 0.92) & (luma > 0.78)] *= 0.15
+              mc = cv2.GaussianBlur(cv2.erode(mf, ek, iterations=1), (5, 5), 0)
+              rc = (rgb.astype(np.float32) * np.clip(mc * 1.25, 0.2, 1.0)[..., None]).clip(0, 255).astype(np.uint8)
 
-              if frame_idx % 2 == 0 or last_m is None:
-                  sm = cv2.resize(rgb, (320, 440))
-                  raw_m = np.array(remove(Image.fromarray(sm), session=session, only_mask=True), dtype=np.float32) / 255.0
-                  last_m = np.clip((raw_m - 0.48) / 0.45, 0.0, 1.0)
+              canvas = bg2.copy() if (raw_dur <= 20.5 and t >= 11.1) else bg1.copy()
+              p_pil = Image.fromarray(rc, "RGB").convert("RGBA")
+              p_pil.putalpha(Image.fromarray((mc * 255).clip(0, 255).astype(np.uint8)))
+              canvas.paste(p_pil, (int((W - SW)/2), 540), p_pil)
 
-              smooth_m = last_m if smooth_m is None else (0.75 * last_m + 0.25 * smooth_m)
-              mask_full = cv2.resize(smooth_m, (SW, SH), interpolation=cv2.INTER_LINEAR)
+              tid = "top0" if t < 5.5 else ("top1" if t < 11.0 else "top2")
+              t_st = 0.0 if t < 5.5 else (5.5 if t < 11.0 else 11.0)
+              put_img(canvas, ui[tid], W/2, 250 - (1 - ease_b((t - t_st)/0.45))*60, max(0.2, ease_b((t - t_st)/0.45)))
 
-              # إزالة أي بكسلات بيضاء ساطعة على حواف الشعر (White Wall Despill)
-              luma = (0.299 * rgb[...,0] + 0.587 * rgb[...,1] + 0.114 * rgb[...,2]) / 255.0
-              edge_band = (mask_full > 0.05) & (mask_full < 0.92)
-              white_spill = edge_band & (luma > 0.78)
-              mask_full[white_spill] *= 0.15
+              if raw_dur <= 20.5:
+                  if 4.5 <= t <= 10.5: put_img(canvas, ui["fc1"], 780, 920 + math.sin(t*4)*7, max(0.2, ease_b((t-4.5)/0.4)))
+                  if 6.8 <= t <= 11.0: put_img(canvas, ui["fc2"], 300, 980 + math.cos(t*4)*7, max(0.2, ease_b((t-6.8)/0.4)))
 
-              mask_clean = cv2.GaussianBlur(cv2.erode(mask_full, erode_k, iterations=1), (5, 5), 0)
-              rgb_clean = (rgb.astype(np.float32) * np.clip(mask_clean * 1.25, 0.2, 1.0)[..., None]).clip(0, 255).astype(np.uint8)
-
-              canvas = bg_base.copy()
-              person_pil = Image.fromarray(rgb_clean, "RGB").convert("RGBA")
-              person_pil.putalpha(Image.fromarray((mask_clean * 255).clip(0, 255).astype(np.uint8)))
-              canvas.paste(person_pil, (int((W - SW)/2), 540), person_pil)
-
-              for idx, (cid, _, _, trange) in enumerate(captions_timeline):
-                  ts, te = [float(x) for x in trange.split(",")]
-                  if ts <= t < te or (idx == len(captions_timeline)-1 and t >= ts):
-                      p_in = ease_back((t - ts) / 0.4)
-                      # 1. النص الفوقاني المتزامن مع كل جملة (أعلى الشاشة)
-                      paste_ui(canvas, ui[f"top{idx}"], W/2, 270 - (1-p_in)*60, scale=max(0.2, p_in), alpha=min(1.0, (t-ts)/0.25))
-                      # 2. الكابشن في أسفل الشاشة تماماً كما أشار محمود
-                      cap_boost = 1.07 if cid == "cap3" else 1.0
-                      paste_ui(canvas, ui[cid], W/2, 1735, scale=cap_boost * min(1.04, max(0.75, p_in)), alpha=1.0)
+              for cid, _, _, ts, te in captions_tl:
+                  if ts <= t < te:
+                      put_img(canvas, ui[cid], W/2, 1730, min(1.05, max(0.75, ease_b((t - ts)/0.35))))
                       break
 
-              try:
-                  ffmpeg_proc.stdin.write(canvas.tobytes())
-              except BrokenPipeError:
-                  break
-              frame_idx += 1
-              if frame_idx % 60 == 0 or frame_idx == total_frames:
-                  print(f"⚡ تقدم الرندر الذكي: {frame_idx}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
+              try: proc.stdin.write(canvas.tobytes())
+              except BrokenPipeError: break
+              idx += 1
+              if idx % 60 == 0: print(f"⚡ تم رندر {idx} إطار...", flush=True)
 
           cap.release()
-          try:
-              ffmpeg_proc.stdin.close()
-          except Exception:
-              pass
-          ffmpeg_proc.wait()
-          print("✅ اكتمل مونتاج الفيديو الجديد بنجاح ساحق!", flush=True)
+          try: proc.stdin.close()
+          except Exception: pass
+          proc.wait()
+          print("✅ اكتمل الرندر بنجاح!", flush=True)
           EOF
-          python3 -u $(ls -t *.py | head -n 1)
+          python3 -u run_studio.py
 
       - name: 📦 4. رفع الفيديو الجاهز للتحميل المباشر
         uses: actions/upload-artifact@v4
         with:
-          name: 🎬-Smart-WhiteBG-Edited-Reel
+          name: 🎬-Smart-3Zone-Master-Reel
           path: Smart_Edited_Reel.mp4
           retention-days: 30
