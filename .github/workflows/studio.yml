@@ -1,4 +1,4 @@
-name: 🎬 Turkish Viral Style Editor (0$ Cost + Micro-UI + PiP Speaker)
+name: 🎬 Ultimate 3-Zone AI Editor (Clean Cutout + Images + SFX + Captions)
 
 on:
   push:
@@ -6,34 +6,36 @@ on:
   workflow_dispatch:
 
 jobs:
-  render_viral_style:
+  render_ultimate_reel:
     runs-on: ubuntu-latest
     steps:
       - name: 📥 1. تجهيز السيرفر السحابي
         uses: actions/checkout@v4
 
-      - name: ⚙️ 2. تثبيت المحركات المفتوحة المصدر (0$ تكلفة)
+      - name: ⚙️ 2. تثبيت محركات العزل البصري والصوتيات
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
-          pip install -q playwright pillow numpy opencv-python-headless requests
+          pip install -q "rembg[cpu]" onnxruntime playwright pillow numpy opencv-python-headless requests
           playwright install chromium
 
-      - name: 🚀 3. مونتاج الفيديو بستايل الشاب التركي (إطار سفلي متحرك + واجهات Micro-UI)
+      - name: 🚀 3. رندر المناطق الثلاث (أعلى Micro-UI بالصور + وسط كابشن + أسفل عزل وتتبع يد)
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat << 'EOF' > viral_turkish_style.py
+          cat << 'EOF' > ultimate_editor.py
           import os, glob, subprocess, time, math, urllib.request
           import numpy as np
           import cv2
           import requests
           from pathlib import Path
-          from PIL import Image, ImageDraw
+          from PIL import Image, ImageDraw, ImageFilter
+          from rembg import remove, new_session
           from playwright.sync_api import sync_playwright
 
-          os.makedirs("ui_cards", exist_ok=True)
+          os.makedirs("ui_layers", exist_ok=True)
+          os.makedirs("assets", exist_ok=True)
           input_video = None
 
           # 1. سحب الفيديو الخام من Releases تلقائياً
@@ -46,7 +48,7 @@ jobs:
                   for rel in resp.json():
                       for asset in rel.get("assets", []):
                           if asset.get("name", "").lower().endswith((".mp4", ".mov", ".mkv")):
-                              print(f"📦 [1/4] سحب الفيديو الخام من Releases: {asset['name']}", flush=True)
+                              print(f"📦 [1/5] سحب الفيديو الخام من Releases: {asset['name']}", flush=True)
                               urllib.request.urlretrieve(asset["browser_download_url"], "raw_input.mp4")
                               input_video = "raw_input.mp4"
                               break
@@ -56,20 +58,36 @@ jobs:
               print(f"⚠️ فحص Releases: {e}", flush=True)
 
           if not input_video or not os.path.exists(input_video):
-              files = [f for f in glob.glob("*.mp4") if "Edited_" not in f and "clean_" not in f]
+              files = [f for f in glob.glob("*.mp4") if "Ultimate_" not in f and "clean_" not in f]
               if files:
                   input_video = files[0]
 
           if not input_video:
               raise FileNotFoundError("⚠️ لم يتم العثور على الفيديو الخام في Releases!")
 
-          # 2. تجهيز كاميرا المتحدث ومعالجة الصوت مع مؤثرات النقرات والـ Whoosh الناعمة
-          print("✂️ [2/4] تجهيز إطار المتحدث وهندسة الصوت والمؤثرات...", flush=True)
+          # 2. تحميل صور حقيقية عالية الدقة للكروت والمشاهد العلوية والسفلية
+          print("🖼️ [2/5] تحميل الصور الحقيقية للكروت والمشاهد التفاعلية...", flush=True)
+          img_urls = {
+              "p1": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=85",
+              "p2": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=300&q=85",
+              "p3": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=300&q=85",
+              "p4": "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=300&q=85"
+          }
+          for k, u in img_urls.items():
+              try:
+                  req = urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0'})
+                  with urllib.request.urlopen(req, timeout=10) as r:
+                      Path(f"assets/{k}.jpg").write_bytes(r.read())
+              except Exception:
+                  Image.new("RGB", (300, 300), (40, 50, 70)).save(f"assets/{k}.jpg")
+
+          # 3. تجهيز الفيديو والصوت + توليد مؤثرات صوتية قوية وواضحة جداً لكل أنيميشن
+          print("🔊 [3/5] هندسة الصوت وتوليد مؤثرات الأنيميشن الواضحة (Pop, Whoosh, Impact, Drop)...", flush=True)
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
               "-i", input_video, "-t", "16.4",
-              "-vf", "scale=640:800:force_original_aspect_ratio=increase,crop=640:800,fps=30,eq=contrast=1.08:saturation=1.12",
-              "-an", "speaker_cam.mp4"
+              "-vf", "scale=760:950:force_original_aspect_ratio=increase,crop=760:950,fps=30",
+              "-an", "speaker_crop.mp4"
           ], check=True)
 
           subprocess.run([
@@ -79,247 +97,318 @@ jobs:
               "-ar", "48000", "-ac", "2", "voice_clean.wav"
           ], check=True)
 
-          # مؤثر انتقال ناعم + نقرة زر تفاعلية
+          # مؤثر 1: Whoosh قوي وواضح لانتقال المشاهد
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-              "-i", "anoisesrc=d=0.25:c=pink:r=48000:a=0.16",
-              "-af", "bandpass=f=1100:width_type=h:w=700,afade=t=in:st=0:d=0.05,afade=t=out:st=0.10:d=0.15",
-              "-ar", "48000", "-ac", "2", "ui_whoosh.wav"
+              "-i", "anoisesrc=d=0.35:c=pink:r=48000:a=0.45",
+              "-af", "bandpass=f=800:width_type=h:w=600,afade=t=in:st=0:d=0.08,afade=t=out:st=0.15:d=0.20",
+              "-ar", "48000", "-ac", "2", "sfx_whoosh.wav"
           ], check=True)
 
+          # مؤثر 2: Pop/Pluck رنان واضح عند إشارات اليد وظهور الكروت
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-              "-i", "aevalsrc='0.25*sin(2*PI*880*t)*exp(-25*t)':s=48000:d=0.18",
-              "-ar", "48000", "-ac", "2", "ui_ding.wav"
+              "-i", "aevalsrc='0.55*sin(2*PI*(520+600*t)*t)*exp(-18*t)':s=48000:d=0.25",
+              "-ar", "48000", "-ac", "2", "sfx_pop.wav"
           ], check=True)
 
+          # مؤثر 3: Stamp Impact عند نزول ختم 0$
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+              "-i", "aevalsrc='0.65*sin(2*PI*(160-90*t)*t)*exp(-9*t)+0.25*sin(2*PI*880*t)*exp(-20*t)':s=48000:d=0.45",
+              "-ar", "48000", "-ac", "2", "sfx_stamp.wav"
+          ], check=True)
+
+          # مؤثر 4: Sub-Bass Drop + Shimmer عند تغير الخلفية في الثانية 11.1
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+              "-i", "aevalsrc='0.60*sin(2*PI*(150-85*t)*t)*exp(-3.5*t)+0.25*sin(2*PI*528*t)*exp(-6*t)+0.20*sin(2*PI*660*t)*exp(-5*t)':s=48000:d=0.85",
+              "-ar", "48000", "-ac", "2", "sfx_bg_change.wav"
+          ], check=True)
+
+          # دمج جميع المؤثرات بتوقيتات دقيقة ومسموعة بوضوح
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-              "-i", "voice_clean.wav", "-i", "ui_whoosh.wav", "-i", "ui_ding.wav",
+              "-i", "voice_clean.wav",
+              "-i", "sfx_whoosh.wav",
+              "-i", "sfx_pop.wav",
+              "-i", "sfx_stamp.wav",
+              "-i", "sfx_bg_change.wav",
               "-filter_complex",
-              "[1:a]adelay=300|300[w1];"
-              "[1:a]adelay=4500|4500[w2];"
-              "[2:a]adelay=5300|5300[d1];"
-              "[1:a]adelay=6800|6800[w3];"
-              "[1:a]adelay=9100|9100[w4];"
-              "[1:a]adelay=11200|11200[w5];"
-              "[2:a]adelay=14200|14200[d2];"
-              "[0:a][w1][w2][d1][w3][w4][w5][d2]amix=inputs=8:duration=first:dropout_transition=0:weights='2.0 0.6 0.6 0.8 0.6 0.6 0.6 0.8'[aout]",
+              "[1:a]adelay=150|150[w1];"
+              "[3:a]adelay=2000|2000[st];"
+              "[1:a]adelay=4400|4400[w2];"
+              "[2:a]adelay=4550|4550[p1];"
+              "[2:a]adelay=6800|6800[p2];"
+              "[1:a]adelay=8950|8950[w3];"
+              "[2:a]adelay=9100|9100[p3];"
+              "[4:a]adelay=11100|11100[bg];"
+              "[1:a]adelay=13200|13200[w4];"
+              "[2:a]adelay=14200|14200[p4];"
+              "[0:a][w1][st][w2][p1][p2][w3][p3][bg][w4][p4]amix=inputs=11:duration=first:dropout_transition=0:"
+              "weights='2.2 0.9 1.2 0.9 1.2 1.2 0.9 1.1 1.4 0.9 1.1'[aout]",
               "-map", "[aout]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"
           ], check=True)
 
-          # 3. بناء مشاهد الـ Micro-UI على غرار فيديو الشاب التركي (أسود صافي + أصفر ذهبي + كروت تفاعلية)
-          print("🎨 [3/4] بناء مشاهد الـ Micro-UI التفاعلية (ستايل omergocmen)...", flush=True)
-          html_scenes = """<!DOCTYPE html>
+          # 4. بناء الطبقات البصرية الغنية بالصور والكابشن الحرفي
+          print("🎨 [4/5] بناء المشاهد العلوية المصورة + الكابشن الحرفي + كروت تتبع اليد...", flush=True)
+          p1_uri = Path("assets/p1.jpg").resolve().as_uri()
+          p2_uri = Path("assets/p2.jpg").resolve().as_uri()
+          p3_uri = Path("assets/p3.jpg").resolve().as_uri()
+          p4_uri = Path("assets/p4.jpg").resolve().as_uri()
+
+          captions_data = [
+              ("cap0", "طيب هذا الفيديو لاختبار", "الذكاء الاصطناعي 🤖", 0.0, 2.3),
+              ("cap1", "ورح نشوف كيف رح يمنّتج لي", "هذا الفيديو تلقائياً 🎬", 2.3, 4.5),
+              ("cap2", "هون رح يحط لكم", "شي رائع جداً ✨", 4.5, 6.8),
+              ("cap3", "وهون رح يبهركم", "فيه أكثر وأكثر 🚀", 6.8, 9.0),
+              ("cap4", "وهون رح ينزل عندكم", "الكابشن التفاعلي 💬", 9.0, 11.1),
+              ("cap5", "وأكيد الخلفية", "رح تتغير بالكامل 🌌", 11.1, 13.3),
+              ("cap6", "الكرة بملعبك.. فرجيني", "شو رح يطلع معك! 🔥", 13.3, 16.4),
+          ]
+
+          caps_html = ""
+          for cid, l1, l2, _, _ in captions_data:
+              caps_html += f"""
+              <div id="{cid}" class="verbatim-cap">
+                <span class="vc-1">{l1}</span>
+                <span class="vc-2">{l2}</span>
+              </div>"""
+
+          html_all = f"""<!DOCTYPE html>
           <html lang="ar" dir="rtl">
           <head>
           <meta charset="UTF-8">
           <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
           <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { background: transparent; color: #fff; font-family: 'Cairo', sans-serif; width: 1080px; padding: 30px; }
-            .scene-block { width: 940px; padding: 20px; margin-bottom: 50px; }
+            * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+            body {{ background: transparent; color: #fff; font-family: 'Cairo', sans-serif; width: 1080px; padding: 25px; }}
+            .top-scene {{ width: 960px; padding: 15px; margin-bottom: 40px; }}
+            .viral-h {{ font-size: 54px; font-weight: 900; line-height: 1.2; margin-bottom: 20px; text-align: center; }}
+            .yl {{ color: #facc15; }}
 
-            /* العناوين العلوية الجريئة بالأبيض والأصفر الذهبي */
-            .viral-title { font-size: 64px; font-weight: 900; line-height: 1.22; letter-spacing: -0.5px; margin-bottom: 28px; }
-            .hl-yellow { color: #facc15; }
-            .hl-orange { color: #fb923c; }
-            .hl-green { color: #4ade80; }
-
-            /* المشهد 1: قائمة الكورسات/الأدوات المدفوعة مع ختم 0$ الأصفر المائل */
-            .course-item {
-              background: #141417; border: 2px solid #27272a; border-radius: 24px;
-              padding: 24px 30px; margin-bottom: 18px;
+            /* كروت المشهد العلوي الأول مع صور حقيقية */
+            .media-row {{
+              background: #141418; border: 2px solid #27272a; border-radius: 24px;
+              padding: 16px 24px; margin-bottom: 14px;
               display: flex; align-items: center; justify-content: space-between;
-            }
-            .course-left { display: flex; align-items: center; gap: 22px; }
-            .play-box {
-              width: 64px; height: 64px; border-radius: 18px; background: #1f1f24;
-              display: flex; align-items: center; justify-content: center; font-size: 26px; color: #71717a;
-            }
-            .c-title { font-size: 30px; font-weight: 800; color: #f4f4f5; }
-            .c-sub { font-size: 21px; font-weight: 600; color: #71717a; }
-            .price-btn {
-              background: #3f1d24; color: #f87171; border: 1.5px solid #7f1d1d;
-              padding: 10px 26px; border-radius: 14px; font-size: 24px; font-weight: 800;
+              box-shadow: 0 15px 30px rgba(0,0,0,0.6);
+            }}
+            .media-left {{ display: flex; align-items: center; gap: 20px; }}
+            .row-thumb {{ width: 78px; height: 78px; border-radius: 18px; object-fit: cover; border: 2px solid #facc15; }}
+            .r-title {{ font-size: 28px; font-weight: 900; color: #fff; }}
+            .r-sub {{ font-size: 20px; font-weight: 700; color: #a1a1aa; }}
+            .bad-price {{
+              background: #3f1d24; color: #f87171; border: 2px solid #ef4444;
+              padding: 8px 22px; border-radius: 14px; font-size: 24px; font-weight: 900;
               text-decoration: line-through;
-            }
+            }}
 
-            /* ختم 0$ المجاني المائل */
-            #zero_stamp {
-              width: 520px; background: #09090b; border: 5px solid #facc15;
-              border-radius: 32px; padding: 28px 40px; text-align: center;
-              box-shadow: 0 30px 60px rgba(0,0,0,0.9), 0 0 40px rgba(250,204,21,0.25);
-            }
-            .zero-big { font-size: 92px; font-weight: 900; color: #facc15; font-family: 'JetBrains Mono', monospace; line-height: 1; }
-            .zero-txt { font-size: 36px; font-weight: 900; color: #ffffff; margin-top: 8px; }
+            #zero_stamp {{
+              width: 480px; background: #09090b; border: 5px solid #facc15;
+              border-radius: 30px; padding: 20px 34px; text-align: center;
+              box-shadow: 0 25px 50px rgba(0,0,0,0.95);
+            }}
+            .z-num {{ font-size: 82px; font-weight: 900; color: #facc15; font-family: 'JetBrains Mono', monospace; line-height: 1; }}
+            .z-lbl {{ font-size: 32px; font-weight: 900; color: #fff; margin-top: 6px; }}
 
-            /* المشهد 2: شريط البحث التفاعلي وأشرطة التحميل 100% */
-            .browser-box {
-              background: #121215; border: 2px solid #27272a; border-radius: 28px; padding: 30px;
-            }
-            .browser-dots { display: flex; gap: 10px; margin-bottom: 22px; align-items: center; }
-            .b-dot { width: 14px; height: 14px; border-radius: 50%; background: #3f3f46; }
-            .search-bar {
-              background: #09090b; border: 2.5px solid #facc15; border-radius: 18px;
-              padding: 18px 26px; font-size: 30px; font-weight: 800; color: #fff;
-              display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px;
-            }
-            .prog-row { display: flex; align-items: center; gap: 20px; margin-bottom: 16px; font-family: 'JetBrains Mono', monospace; }
-            .prog-label { width: 280px; font-size: 22px; color: #a1a1aa; text-align: left; direction: ltr; }
-            .prog-track { flex: 1; height: 12px; background: #27272a; border-radius: 6px; overflow: hidden; }
-            .prog-fill { height: 100%; background: #facc15; border-radius: 6px; width: 100%; }
-            .prog-pct { font-size: 22px; color: #facc15; font-weight: 800; }
+            /* المشهد العلوي الثاني: استوديو الصور والتحليل */
+            .studio-panel {{
+              background: #121216; border: 2px solid #27272a; border-radius: 28px; padding: 24px;
+              display: flex; gap: 24px; align-items: center;
+            }}
+            .panel-img {{ width: 170px; height: 170px; border-radius: 22px; object-fit: cover; border: 3px solid #38bdf8; }}
+            .panel-body {{ flex: 1; }}
+            .search-pill {{
+              background: #09090b; border: 2px solid #facc15; border-radius: 14px;
+              padding: 12px 20px; font-size: 25px; font-weight: 800; margin-bottom: 14px;
+              display: flex; justify-content: space-between;
+            }}
+            .mini-tags {{ display: flex; gap: 12px; }}
+            .m-tag {{ background: #1e293b; color: #38bdf8; padding: 6px 16px; border-radius: 12px; font-size: 20px; font-weight: 800; }}
 
-            /* المشهد 3: مقارنة (التقليدي الممل vs مصنعك الذكي) */
-            .compare-grid { display: flex; gap: 26px; }
-            .cmp-card {
-              flex: 1; background: #121215; border: 2px solid #27272a; border-radius: 28px; padding: 28px;
-            }
-            .cmp-card.pro { border-color: #facc15; background: linear-gradient(180deg, rgba(250,204,21,0.08), #121215); }
-            .cmp-num { font-size: 24px; font-weight: 800; color: #71717a; font-family: 'JetBrains Mono', monospace; }
-            .pro .cmp-num { color: #facc15; }
-            .cmp-head { font-size: 34px; font-weight: 900; margin: 10px 0 20px; }
-            .cmp-step {
-              background: #1c1c21; padding: 14px 20px; border-radius: 14px;
-              margin-bottom: 12px; font-size: 23px; font-weight: 700; color: #d4d4d8;
-              border-right: 4px solid #3f3f46;
-            }
-            .pro .cmp-step { border-right-color: #facc15; color: #fff; }
+            /* المشهد العلوي الثالث: مقارنة مصورة */
+            .cmp-wrap {{ display: flex; gap: 22px; }}
+            .cmp-box {{
+              flex: 1; background: #121216; border: 2px solid #27272a; border-radius: 26px;
+              padding: 20px; display: flex; align-items: center; gap: 18px;
+            }}
+            .cmp-box.gold {{ border-color: #facc15; background: linear-gradient(135deg, rgba(250,204,21,0.12), #121216); }}
+            .cmp-img {{ width: 110px; height: 110px; border-radius: 18px; object-fit: cover; }}
+            .cmp-t1 {{ font-size: 22px; font-weight: 800; color: #facc15; }}
+            .cmp-t2 {{ font-size: 29px; font-weight: 900; color: #fff; margin: 4px 0; }}
+            .cmp-t3 {{ font-size: 20px; font-weight: 700; color: #a1a1aa; }}
 
-            /* المشهد 4: الأدوات المجانية + زر الإرسال التفاعلي */
-            .stack-row {
-              background: #141417; border: 2px solid #27272a; border-radius: 22px;
-              padding: 20px 28px; margin-bottom: 14px;
-              display: flex; align-items: center; justify-content: space-between;
-            }
-            .stack-name { font-size: 29px; font-weight: 800; color: #fff; }
-            .stack-free { font-size: 32px; font-weight: 900; color: #facc15; font-family: 'JetBrains Mono', monospace; }
+            /* الكابشن الحرفي في منتصف الشاشة */
+            .verbatim-cap {{
+              width: 960px; padding: 18px 34px; margin-bottom: 30px;
+              background: linear-gradient(90deg, rgba(15,23,42,0.96), rgba(9,13,24,0.98), rgba(15,23,42,0.96));
+              border: 2.5px solid rgba(250,204,21,0.45);
+              border-right: 10px solid #facc15;
+              border-left: 10px solid #f97316;
+              border-radius: 28px; text-align: center;
+              box-shadow: 0 18px 40px rgba(0,0,0,0.85);
+              display: flex; align-items: center; justify-content: center; gap: 16px;
+            }}
+            .vc-1 {{ font-size: 36px; font-weight: 800; color: #f8fafc; }}
+            .vc-2 {{ font-size: 40px; font-weight: 900; color: #facc15; }}
 
-            #cta_btn {
-              width: 620px; background: #facc15; color: #09090b;
-              border-radius: 26px; padding: 24px 40px; text-align: center;
-              font-size: 36px; font-weight: 900;
-              box-shadow: 0 20px 45px rgba(250,204,21,0.35);
-            }
+            /* كروت الواقع المعزز المصورة فوق إصبع محمود في القسم السفلي */
+            .finger-card {{
+              width: 450px; padding: 18px 22px; margin-bottom: 30px;
+              background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(9,13,24,0.98));
+              border: 3px solid #f97316; border-radius: 28px;
+              display: flex; align-items: center; gap: 20px;
+              box-shadow: 0 22px 45px rgba(0,0,0,0.85);
+            }}
+            .finger-card.cyan {{ border-color: #38bdf8; }}
+            .fc-img {{ width: 96px; height: 96px; border-radius: 20px; object-fit: cover; border: 2px solid #f97316; flex-shrink: 0; }}
+            .cyan .fc-img {{ border-color: #38bdf8; }}
+            .fc-tag {{ font-size: 18px; font-weight: 900; color: #fb923c; display: block; }}
+            .cyan .fc-tag {{ color: #38bdf8; }}
+            .fc-title {{ font-size: 28px; font-weight: 900; color: #fff; line-height: 1.2; margin: 4px 0; }}
+            .fc-sub {{ font-size: 19px; font-weight: 700; color: #cbd5e1; }}
 
-            /* شريط الكابشن السفلي المدمج فوق المتحدث */
-            .mini-cap {
-              width: 860px; background: rgba(20,20,23,0.92);
-              border: 2px solid #27272a; border-radius: 24px;
-              padding: 16px 30px; text-align: center;
-              font-size: 34px; font-weight: 800; color: #fff;
-            }
-            .mini-cap span { color: #facc15; }
+            #bg_badge {{
+              width: 640px; padding: 14px 28px;
+              background: linear-gradient(90deg, #f97316, #eab308);
+              border-radius: 40px; text-align: center;
+              font-size: 27px; font-weight: 900; color: #09090b;
+              box-shadow: 0 15px 35px rgba(249,115,22,0.6);
+            }}
           </style>
           </head>
           <body>
-            <!-- المشهد 1 (0.0 -> 4.5s) -->
-            <div id="sc1" class="scene-block">
-              <div class="viral-title">لا تدفع <span class="hl-yellow">ليرة واحدة</span><br>على أدوات المونتاج.</div>
-              <div class="course-item">
-                <div class="course-left"><div class="play-box">▶</div><div><div class="c-title">اشتراكات برامج المونتاج</div><div class="c-sub">قيود شهرية • استهلاك للجهاز</div></div></div>
-                <div class="price-btn">$49/شهر</div>
+            <!-- المشهد العلوي 1 -->
+            <div id="top1" class="top-scene">
+              <div class="viral-h">لا تدفع <span class="yl">ليرة واحدة</span> على المونتاج</div>
+              <div class="media-row">
+                <div class="media-left"><img class="row-thumb" src="{p3_uri}"/><div><div class="r-title">برامج المونتاج التقليدية</div><div class="r-sub">اشتراكات شهرية • استهلاك للجهاز</div></div></div>
+                <div class="bad-price">$49/شهر</div>
               </div>
-              <div class="course-item">
-                <div class="course-left"><div class="play-box">▶</div><div><div class="c-title">واجهات API الصوتية المدفوعة</div><div class="c-sub">تكلفة على كل دقيقة</div></div></div>
-                <div class="price-btn">$29/شهر</div>
+              <div class="media-row">
+                <div class="media-left"><img class="row-thumb" src="{p4_uri}"/><div><div class="r-title">محركات الصوت والكابشن</div><div class="r-sub">رسوم إضافية لكل دقيقة</div></div></div>
+                <div class="bad-price">$29/شهر</div>
               </div>
             </div>
 
             <div id="zero_stamp">
-              <div class="zero-big">$0</div>
-              <div class="zero-txt">مجاني بالكامل 100%</div>
+              <div class="z-num">$0</div>
+              <div class="z-lbl">مجاني بالكامل 100%</div>
             </div>
 
-            <!-- المشهد 2 (4.5 -> 9.0s) -->
-            <div id="sc2" class="scene-block">
-              <div class="viral-title">مشاهد تفاعلية حية<br><span class="hl-yellow">تُبنى أوتوماتيكياً.</span></div>
-              <div class="browser-box">
-                <div class="browser-dots"><div class="b-dot"></div><div class="b-dot"></div><div class="b-dot"></div><span style="color:#71717a;font-size:20px;margin-right:10px">studio.24ofis.com</span></div>
-                <div class="search-bar"><span>🔍 تحليل الفيديو وتوليد المشاهد...</span><span style="color:#facc15">AI</span></div>
-                <div class="prog-row"><div class="prog-pct">100%</div><div class="prog-track"><div class="prog-fill"></div></div><div class="prog-label">video_01 • transcript</div></div>
-                <div class="prog-row"><div class="prog-pct">100%</div><div class="prog-track"><div class="prog-fill"></div></div><div class="prog-label">video_02 • micro_ui</div></div>
-                <div class="prog-row"><div class="prog-pct">100%</div><div class="prog-track"><div class="prog-fill"></div></div><div class="prog-label">video_03 • sfx_sync</div></div>
-              </div>
-            </div>
-
-            <!-- المشهد 3 (9.0 -> 13.0s) -->
-            <div id="sc3" class="scene-block">
-              <div class="viral-title">الفرق بين العادي<br><span class="hl-yellow">ومصنعك السحابي.</span></div>
-              <div class="compare-grid">
-                <div class="cmp-card">
-                  <div class="cmp-num">01 • قبل</div>
-                  <div class="cmp-head" style="color:#a1a1aa">مونتاج تقليدي</div>
-                  <div class="cmp-step">نفس الكروت المكررة</div>
-                  <div class="cmp-step">عزل خلفية بطيء ومشوه</div>
-                  <div class="cmp-step">صوت آلي بدون روح</div>
-                </div>
-                <div class="cmp-card pro">
-                  <div class="cmp-num">02 • الآن ✨</div>
-                  <div class="cmp-head" style="color:#facc15">استوديو 24.ofis</div>
-                  <div class="cmp-step">واجهات Micro-UI حية</div>
-                  <div class="cmp-step">إطار متحدث سينمائي</div>
-                  <div class="cmp-step">يعمل بالخلفية بـ 0$</div>
+            <!-- المشهد العلوي 2 -->
+            <div id="top2" class="top-scene">
+              <div class="viral-h">تحليل بصري <span class="yl">وتتبع ذكي للحركة</span></div>
+              <div class="studio-panel">
+                <img class="panel-img" src="{p1_uri}"/>
+                <div class="panel-body">
+                  <div class="search-pill"><span>🔍 رصد إشارات اليد والكلام...</span><span class="yl">ACTIVE</span></div>
+                  <div class="mini-tags">
+                    <span class="m-tag">⚡ عزل خلفية نقي</span>
+                    <span class="m-tag">🖼️ كروت مصورة</span>
+                    <span class="m-tag">🔊 مؤثرات SFX</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- المشهد 4 (13.0 -> 16.4s) -->
-            <div id="sc4" class="scene-block">
-              <div class="viral-title">كل شيء بالخلفية<br><span class="hl-yellow">مجاناً تماماً.</span></div>
-              <div class="stack-row"><span class="stack-name">🎬 GitHub Cloud Render</span><span class="stack-free">$0</span></div>
-              <div class="stack-row"><span class="stack-name">🎙️ Gemini Director + Whisper</span><span class="stack-free">$0</span></div>
-              <div class="stack-row"><span class="stack-name">⚡ FFmpeg + Micro-UI Engine</span><span class="stack-free">$0</span></div>
+            <!-- المشهد العلوي 3 -->
+            <div id="top3" class="top-scene">
+              <div class="viral-h">المطبخ السحابي <span class="yl">جاهز بالكامل</span></div>
+              <div class="cmp-wrap">
+                <div class="cmp-box">
+                  <img class="cmp-img" src="{p3_uri}"/>
+                  <div><div class="cmp-t1" style="color:#94a3b8">01 • السابق</div><div class="cmp-t2">عزل مشوه</div><div class="cmp-t3">هالة بيضاء وبدون صور</div></div>
+                </div>
+                <div class="cmp-box gold">
+                  <img class="cmp-img" src="{p2_uri}"/>
+                  <div><div class="cmp-t1">02 • الآن ✨</div><div class="cmp-t2">3 طبقات متكاملة</div><div class="cmp-t3">عزل نقي + صور + SFX</div></div>
+                </div>
+              </div>
             </div>
 
-            <div id="cta_btn">🚀 جاهز للنشر الفوري • $0</div>
+            <!-- كروت إصبع محمود المصورة (القسم السفلي) -->
+            <div id="fcard_right" class="finger-card">
+              <img class="fc-img" src="{p1_uri}"/>
+              <div>
+                <span class="fc-tag">👆 إشارة اليد الأولى • AI</span>
+                <div class="fc-title">شي رائع جداً!</div>
+                <div class="fc-sub">كرت مصور مرتبط بإصبعك</div>
+              </div>
+            </div>
 
-            <!-- الكابشنات السريعة -->
-            <div id="mcap1" class="mini-cap">اختبار المونتاج الذكي <span>بستايل القنوات الكبرى</span></div>
-            <div id="mcap2" class="mini-cap">واجهات تفاعلية <span>ومؤثرات في مكانها الدقيق</span></div>
-            <div id="mcap3" class="mini-cap">مقارنة حية <span>وكابشن متزامن تلقائياً</span></div>
-            <div id="mcap4" class="mini-cap">بدون أي تكاليف إضافية <span>الكرة بملعبك! 🔥</span></div>
+            <div id="fcard_left" class="finger-card cyan">
+              <img class="fc-img" src="{p2_uri}"/>
+              <div>
+                <span class="fc-tag">🚀 إشارة اليد الثانية • PRO</span>
+                <div class="fc-title">إبهار بصري متكامل</div>
+                <div class="fc-sub">صور حقيقية ومؤثرات صوتية</div>
+              </div>
+            </div>
+
+            <div id="bg_badge">✨ تم تغيير خلفية المتحدث بالكامل!</div>
+
+            {caps_html}
           </body>
           </html>"""
 
-          Path("scenes.html").write_text(html_scenes, encoding="utf-8")
+          Path("all_ui.html").write_text(html_all, encoding="utf-8")
 
-          ui_ids = ["sc1", "zero_stamp", "sc2", "sc3", "sc4", "cta_btn", "mcap1", "mcap2", "mcap3", "mcap4"]
+          ui_names = ["top1", "zero_stamp", "top2", "top3", "fcard_right", "fcard_left", "bg_badge"] + [c[0] for c in captions_data]
           with sync_playwright() as p:
               browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
-              page = browser.new_page(viewport={"width": 1080, "height": 4000})
-              page.goto(f"file://{os.path.abspath('scenes.html')}", wait_until="networkidle")
-              page.wait_for_timeout(600)
-              for uid in ui_ids:
-                  page.locator(f"#{uid}").screenshot(path=f"ui_cards/{uid}.png", omit_background=True)
+              page = browser.new_page(viewport={"width": 1080, "height": 4200})
+              page.goto(f"file://{os.path.abspath('all_ui.html')}", wait_until="networkidle")
+              page.wait_for_timeout(700)
+              for name in ui_names:
+                  page.locator(f"#{name}").screenshot(path=f"ui_layers/{name}.png", omit_background=True)
               browser.close()
 
-          ui = {uid: Image.open(f"ui_cards/{uid}.png").convert("RGBA") for uid in ui_ids}
+          ui = {name: Image.open(f"ui_layers/{name}.png").convert("RGBA") for name in ui_names}
 
-          # 4. الرندر السريع (بدون rembg - يستغرق ثوانٍ معدودة فقط!)
-          print("🎬 [4/4] جاري رندر الفيديو بستايل الإطار السفلي المتحرك والـ Micro-UI...", flush=True)
+          # 5. الرندر الثلاثي المتكامل (عزل خلفية نقي بدون هالة بيضاء + كابشن وسط + مشاهد عليا)
+          print("🎬 [5/5] بدء العزل النقي (Alpha Choke + Despill) ورندر الطبقات الثلاث...", flush=True)
           W, H = 1080, 1920
-          bg_base = Image.new("RGBA", (W, H), (9, 9, 11, 255))
-          bg_draw = ImageDraw.Draw(bg_base)
-          # نقاط شبكة خفيفة جداً في الخلفية السوداء مثل الفيديو التركي
+          SW, SH = 760, 950
+
+          # تجهيز المسرح السفلي قبل وبعد الثانية 11.1
+          y_idx, x_idx = np.ogrid[:H, :W]
+          # المسرح 1 (0.0 -> 11.1s): استوديو داكن فاخر مع هالة زرقاء هادئة خلف محمود
+          glow_s1 = np.clip(1.0 - np.sqrt((x_idx - W*0.5)**2 + (y_idx - 1420)**2) / 520.0, 0, 1)
+          bg1_arr = np.stack([
+              (9 + 18 * glow_s1).astype(np.uint8),
+              (11 + 38 * glow_s1).astype(np.uint8),
+              (16 + 75 * glow_s1).astype(np.uint8)
+          ], axis=-1)
+          bg_mode1 = Image.fromarray(bg1_arr, "RGB").convert("RGBA")
+          d1_draw = ImageDraw.Draw(bg_mode1)
           for gx in range(60, W, 64):
-              for gy in range(60, H, 64):
-                  bg_draw.ellipse([gx-1, gy-1, gx+1, gy+1], fill=(255, 255, 255, 18))
+              for gy in range(60, 700, 64):
+                  d1_draw.ellipse([gx-1, gy-1, gx+1, gy+1], fill=(255, 255, 255, 22))
+          # إطار مسرح المتحدث السفلي
+          d1_draw.rounded_rectangle([60, 930, 1020, 1890], radius=46, fill=(14, 19, 32, 200), outline=(56, 189, 248, 90), width=3)
 
-          # قناع دائري الحواف لإطار المتحدث السفلي (PiP Rounded Mask)
-          CAM_W, CAM_H = 520, 650
-          cam_mask = Image.new("L", (CAM_W, CAM_H), 0)
-          ImageDraw.Draw(cam_mask).rounded_rectangle([0, 0, CAM_W-1, CAM_H-1], radius=44, fill=255)
-
-          cam_border = Image.new("RGBA", (CAM_W+8, CAM_H+8), (0, 0, 0, 0))
-          ImageDraw.Draw(cam_border).rounded_rectangle([0, 0, CAM_W+7, CAM_H+7], radius=48, outline=(63, 63, 70, 220), width=4)
+          # المسرح 2 (بعد الثانية 11.1 "وأكيد الخلفية راح تتغير"): استوديو نيون برتقالي/ذهبي ومشبك ثلاثي الأبعاد خلف محمود
+          glow_s2 = np.clip(1.0 - np.sqrt((x_idx - W*0.5)**2 + (y_idx - 1400)**2) / 580.0, 0, 1)
+          bg2_arr = np.stack([
+              (10 + 110 * glow_s2).clip(0, 255).astype(np.uint8),
+              (12 + 48 * glow_s2).clip(0, 255).astype(np.uint8),
+              (22 + 15 * glow_s2).clip(0, 255).astype(np.uint8)
+          ], axis=-1)
+          bg_mode2 = Image.fromarray(bg2_arr, "RGB").convert("RGBA")
+          d2_draw = ImageDraw.Draw(bg_mode2)
+          d2_draw.rounded_rectangle([60, 930, 1020, 1890], radius=46, fill=(24, 15, 28, 220), outline=(250, 204, 21, 180), width=4)
+          for gx in range(80, 1000, 56):
+              d2_draw.line([(gx, 935), (gx, 1885)], fill=(250, 204, 21, 28), width=1)
+          for gy in range(950, 1885, 56):
+              d2_draw.line([(65, gy), (1015, gy)], fill=(250, 204, 21, 28), width=1)
 
           def ease_out_back(x):
               x = float(np.clip(x, 0.0, 1.0))
-              return 1.0 + 2.2 * ((x - 1.0) ** 3) + 1.2 * ((x - 1.0) ** 2)
+              return 1.0 + 2.4 * ((x - 1.0) ** 3) + 1.4 * ((x - 1.0) ** 2)
 
-          def paste_centered(canvas, img, cx, cy, scale=1.0, alpha=1.0, angle=0.0):
+          def paste_ui(canvas, img, cx, cy, scale=1.0, alpha=1.0, angle=0.0):
               if alpha <= 0.01 or scale <= 0.1:
                   return
               work = img
@@ -332,7 +421,8 @@ jobs:
                   work.putalpha(work.getchannel("A").point(lambda p: int(p * alpha)))
               canvas.paste(work, (int(cx - work.width/2), int(cy - work.height/2)), work)
 
-          cap = cv2.VideoCapture("speaker_cam.mp4")
+          session = new_session("u2net_human_seg")
+          cap = cv2.VideoCapture("speaker_crop.mp4")
           fps = 30
           total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -342,8 +432,19 @@ jobs:
               "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", str(fps), "-i", "-",
               "-i", "final_audio.aac", "-c:v", "libx264", "-preset", "superfast",
               "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy",
-              "-shortest", "Turkish_Style_Master.mp4"
+              "-shortest", "Ultimate_3Zone_Reel.mp4"
           ], stdin=subprocess.PIPE)
+
+          erode_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+          dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+          last_computed_mask = None
+          smooth_mask = None
+
+          np.random.seed(11)
+          particles = [
+              {"x": float(np.random.randint(90, 990)), "y": float(np.random.randint(960, 1860)), "r": int(np.random.randint(4, 11)), "s": float(np.random.uniform(50, 100))}
+              for _ in range(24)
+          ]
 
           t0 = time.time()
           frame_idx = 0
@@ -352,53 +453,122 @@ jobs:
               if not ret:
                   break
               t = frame_idx / fps
-              canvas = bg_base.copy()
+              rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
-              # --- المسرح العلوي التفاعلي (Top Micro-UI Stage) ---
+              # 1. عزل خلفية فائق النظافة والسرعة (بدون أي هالة بيضاء!)
+              if frame_idx % 2 == 0 or last_computed_mask is None:
+                  small_rgb = cv2.resize(rgb, (304, 380))
+                  raw_m = np.array(remove(Image.fromarray(small_rgb), session=session, only_mask=True), dtype=np.float32) / 255.0
+                  # قص الحواف الضبابية الخارجية تماماً (Alpha Choke) لمنع ظهور الحائط البيج
+                  choked = np.clip((raw_m - 0.45) / 0.45, 0.0, 1.0)
+                  last_computed_mask = choked
+
+              if smooth_mask is None:
+                  smooth_mask = last_computed_mask
+              else:
+                  smooth_mask = 0.75 * last_computed_mask + 0.25 * smooth_mask
+
+              mask_full = cv2.resize(smooth_mask, (SW, SH), interpolation=cv2.INTER_LINEAR)
+              # تآكل إضافي بـ 5 بكسل لبلع أي بكسل أبيض متبقٍ من الحائط ثم تنعيم داخلي بسيط
+              mask_eroded = cv2.erode(mask_full, erode_kernel, iterations=1)
+              mask_clean = cv2.GaussianBlur(mask_eroded, (5, 5), 0)
+
+              # إنشاء إضاءة الحواف السينمائية (Rim Light) حول كتفي ورأس محمود
+              rim_outer = cv2.dilate(mask_clean, dilate_kernel, iterations=1)
+              rim_zone = np.clip(rim_outer - mask_clean, 0.0, 1.0)
+              rim_zone = cv2.GaussianBlur(rim_zone, (15, 15), 0)
+
+              # 2. اختيار خلفية المسرح (تتغير بالكامل في الثانية 11.1 عندما يقول "وأكيد الخلفية راح تتغير")
+              if t < 11.1:
+                  canvas = bg_mode1.copy()
+                  rim_color = np.array([56, 189, 248], dtype=np.float32) # Rim Light أزرق سماوي
+              else:
+                  canvas = bg_mode2.copy()
+                  rim_color = np.array([250, 204, 21], dtype=np.float32) # Rim Light ذهبي مشع
+                  dr_bg = ImageDraw.Draw(canvas)
+                  for idx_p, pt in enumerate(particles):
+                      py = 960 + ((pt["y"] - 960 - (t - 11.1) * pt["s"] * 2.0) % 880)
+                      px = pt["x"] + math.sin(t * 3.5 + idx_p) * 18
+                      col = (250, 204, 21, 170) if idx_p % 2 == 0 else (249, 115, 22, 170)
+                      dr_bg.ellipse([px-pt["r"], py-pt["r"], px+pt["r"], py+pt["r"]], fill=col)
+
+              # 3. Edge Color Decontamination (تعتيم الحواف الخارجية للشعر لمنع أي لون بيج)
+              rgb_float = rgb.astype(np.float32)
+              edge_factor = np.clip(mask_clean * 1.25, 0.25, 1.0)[..., None]
+              decontaminated_rgb = (rgb_float * edge_factor + rim_color * (1.0 - edge_factor) * 0.35).clip(0, 255).astype(np.uint8)
+
+              # رسم هالة الـ Rim Light خلف محمود أولاً
+              rim_rgba = np.zeros((SH, SW, 4), dtype=np.uint8)
+              rim_rgba[..., 0] = int(rim_color[0])
+              rim_rgba[..., 1] = int(rim_color[1])
+              rim_rgba[..., 2] = int(rim_color[2])
+              rim_rgba[..., 3] = (rim_zone * 150).clip(0, 255).astype(np.uint8)
+              rim_pil = Image.fromarray(rim_rgba, "RGBA")
+              canvas.paste(rim_pil, (int((W - SW)/2), 940), rim_pil)
+
+              # لصق محمود المعزول بنقاء تام فوق المسرح السفلي
+              person_pil = Image.fromarray(decontaminated_rgb, "RGB").convert("RGBA")
+              person_pil.putalpha(Image.fromarray((mask_clean * 255).clip(0, 255).astype(np.uint8)))
+              canvas.paste(person_pil, (int((W - SW)/2), 940), person_pil)
+
+              # وميض ضوئي سينمائي لحظة تغير الخلفية في الثانية 11.1
+              if 11.05 <= t <= 11.45:
+                  fl_a = int(150 * (1.0 - abs(t - 11.2) / 0.22))
+                  if fl_a > 0:
+                      fl = Image.new("RGBA", (960, 960), (250, 204, 21, fl_a))
+                      canvas.paste(fl, (60, 930), fl)
+
+              # --- القسم العلوي (Top Interactive Micro-UI with Real Images) ---
               if t < 4.5:
                   p = ease_out_back(t / 0.5)
-                  paste_centered(canvas, ui["sc1"], W/2, 470 - (1-p)*80, scale=max(0.2, p), alpha=min(1.0, t/0.3))
+                  paste_ui(canvas, ui["top1"], W/2, 340 - (1-p)*70, scale=max(0.2, p), alpha=min(1.0, t/0.3))
                   if t >= 2.0:
-                      ps = ease_out_back((t - 2.0) / 0.45)
-                      paste_centered(canvas, ui["zero_stamp"], W/2, 560, scale=max(0.2, ps), alpha=min(1.0, (t-2.0)/0.2), angle=6.0)
-                  cap_img = ui["mcap1"]
+                      ps = ease_out_back((t - 2.0) / 0.4)
+                      paste_ui(canvas, ui["zero_stamp"], W/2, 415, scale=max(0.2, ps), alpha=min(1.0, (t-2.0)/0.2), angle=6.0)
               elif t < 9.0:
                   p = ease_out_back((t - 4.5) / 0.5)
-                  paste_centered(canvas, ui["sc2"], W/2, 490 - (1-p)*80, scale=max(0.2, p), alpha=min(1.0, (t-4.5)/0.3))
-                  cap_img = ui["mcap2"]
-              elif t < 13.0:
+                  paste_ui(canvas, ui["top2"], W/2, 290 - (1-p)*70, scale=max(0.2, p), alpha=min(1.0, (t-4.5)/0.3))
+                  # أشرطة تقدم تفاعلية حية تمتلئ أمام المشاهد من 0% إلى 100%
+                  dr_top = ImageDraw.Draw(canvas)
+                  for b_idx, (lbl, delay_b) in enumerate([("AI Cutout Engine", 4.7), ("Finger AR Tracker", 5.2), ("Studio SFX Sync", 5.7)]):
+                      prog_b = float(np.clip((t - delay_b) / 1.4, 0.0, 1.0))
+                      by_bar = 515 + b_idx * 46
+                      dr_top.rounded_rectangle([140, by_bar, 720, by_bar + 20], radius=10, fill=(39, 39, 42, 255))
+                      if prog_b > 0.02:
+                          dr_top.rounded_rectangle([140, by_bar, 140 + int(580 * prog_b), by_bar + 20], radius=10, fill=(250, 204, 21, 255))
+              else:
                   p = ease_out_back((t - 9.0) / 0.5)
-                  paste_centered(canvas, ui["sc3"], W/2, 500 - (1-p)*80, scale=max(0.2, p), alpha=min(1.0, (t-9.0)/0.3))
-                  cap_img = ui["mcap3"]
-              else:
-                  p = ease_out_back((t - 13.0) / 0.5)
-                  paste_centered(canvas, ui["sc4"], W/2, 430 - (1-p)*80, scale=max(0.2, p), alpha=min(1.0, (t-13.0)/0.3))
-                  if t >= 14.2:
-                      pb = ease_out_back((t - 14.2) / 0.4)
-                      paste_centered(canvas, ui["cta_btn"], W/2, 860, scale=max(0.2, pb), alpha=1.0)
-                  cap_img = ui["mcap4"]
+                  paste_ui(canvas, ui["top3"], W/2, 340 - (1-p)*70, scale=max(0.2, p), alpha=min(1.0, (t-9.0)/0.3))
 
-              # --- إطار المتحدث السفلي المتحرك (PiP Speaker Card) ---
-              rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-              # زوم ديناميكي خفيف داخل الكاميرا عندما يشير بيده
-              zoom = 1.08 if (4.5 <= t <= 8.5) else 1.0
-              if zoom > 1.0:
-                  zh, zw = int(800 / zoom), int(640 / zoom)
-                  y0, x0 = (800 - zh)//2, (640 - zw)//2
-                  rgb = cv2.resize(rgb[y0:y0+zh, x0:x0+zw], (CAM_W, CAM_H))
-              else:
-                  rgb = cv2.resize(rgb, (CAM_W, CAM_H))
+              # --- القسم الأوسط (الكابشن الحرفي لكلام محمود + تكبير عند الثانية 9.0) ---
+              for cid, _, _, ts, te in captions_data:
+                  if ts <= t < te:
+                      p_c = ease_out_back((t - ts) / 0.35)
+                      # عندما يقول "وهون راح ينزل عندكم الكابشن" في الثانية 9.0 يكبر الكابشن ويهتز لجذب العين
+                      highlight_boost = 1.08 + 0.03 * math.sin(t * 12.0) if cid == "cap4" else 1.0
+                      paste_ui(canvas, ui[cid], W/2, 795, scale=highlight_boost * min(1.04, max(0.75, p_c)), alpha=1.0)
+                      break
 
-              spk_pil = Image.fromarray(rgb, "RGB").convert("RGBA")
-              spk_pil.putalpha(cam_mask)
+              # --- الكروت المصورة التفاعلية فوق إصبع محمود في القسم السفلي ---
+              # 1. الإشارة الأولى (00:04.5 -> 00:10.5): فوق إصبعه الأيمن
+              if 4.5 <= t <= 10.5:
+                  pf1 = ease_out_back((t - 4.5) / 0.45)
+                  af1 = float(np.clip((t - 4.5) / 0.25, 0, 1) * np.clip((10.5 - t) / 0.35, 0, 1))
+                  hover1 = math.sin(t * 4.5) * 7.0
+                  paste_ui(canvas, ui["fcard_right"], cx=790, cy=1055 + hover1, scale=max(0.2, pf1), alpha=af1)
 
-              # حركة صعود ونزول ناعمة لإطار المتحدث مثل الفيديو التركي
-              cam_y = 1460 + math.sin(t * 2.5) * 8.0
-              canvas.paste(cam_border, (int(W/2 - (CAM_W+8)/2), int(cam_y - (CAM_H+8)/2)), cam_border)
-              canvas.paste(spk_pil, (int(W/2 - CAM_W/2), int(cam_y - CAM_H/2)), spk_pil)
+              # 2. الإشارة الثانية (00:06.8 -> 00:11.0): فوق إشارته اليسرى/العلوية
+              if 6.8 <= t <= 11.0:
+                  pf2 = ease_out_back((t - 6.8) / 0.45)
+                  af2 = float(np.clip((t - 6.8) / 0.25, 0, 1) * np.clip((11.0 - t) / 0.35, 0, 1))
+                  hover2 = math.cos(t * 4.5) * 7.0
+                  paste_ui(canvas, ui["fcard_left"], cx=290, cy=1095 + hover2, scale=max(0.2, pf2), alpha=af2)
 
-              # شريط الكابشن فوق إطار المتحدث
-              paste_centered(canvas, cap_img, W/2, 1055, scale=1.0, alpha=1.0)
+              # 3. شارة تغير الخلفية (00:11.1 -> 00:15.5)
+              if 11.1 <= t <= 15.5:
+                  pbg = ease_out_back((t - 11.1) / 0.45)
+                  abg = float(np.clip((t - 11.1) / 0.25, 0, 1) * np.clip((15.5 - t) / 0.35, 0, 1))
+                  paste_ui(canvas, ui["bg_badge"], cx=W/2, cy=985, scale=max(0.2, pbg), alpha=abg)
 
               try:
                   ffmpeg_proc.stdin.write(canvas.tobytes())
@@ -406,8 +576,8 @@ jobs:
                   break
 
               frame_idx += 1
-              if frame_idx % 90 == 0 or frame_idx == total_frames:
-                  print(f"⚡ تقدم الرندر السريع: {frame_idx}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
+              if frame_idx % 60 == 0 or frame_idx == total_frames:
+                  print(f"⚡ تقدم الرندر الثلاثي: {frame_idx}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
 
           cap.release()
           try:
@@ -415,13 +585,13 @@ jobs:
           except Exception:
               pass
           ffmpeg_proc.wait()
-          print("✅ اكتمل إنتاج الفيديو بستايل الشاب التركي بنجاح ساحق وتكلفة 0$!", flush=True)
+          print("✅ اكتمل إنتاج الفيديو الثلاثي المتكامل (أعلى + وسط + أسفل معزول) بنجاح!", flush=True)
           EOF
-          python3 -u viral_turkish_style.py
+          python3 -u ultimate_editor.py
 
       - name: 📦 4. رفع الفيديو الجاهز للتحميل المباشر
         uses: actions/upload-artifact@v4
         with:
-          name: 🎬-Turkish-Viral-Style-Reel
-          path: Turkish_Style_Master.mp4
+          name: 🎬-Ultimate-3Zone-Master-Reel
+          path: Ultimate_3Zone_Reel.mp4
           retention-days: 30
