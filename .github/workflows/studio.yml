@@ -1,483 +1,373 @@
-name: 🎬 AI Cinema Studio (Gemini 3.8 Flash TTS + 60FPS)
+name: 🎬 AI Personal Video Editor (Large Files + AR Cards + BG Replace)
 
 on:
   push:
     branches: [ main ]
+  release:
+    types: [ published, edited ]
   workflow_dispatch:
     inputs:
-      voice_name:
-        description: 'شخصية المعلق البشري (Charon = فخم وعميق / Puck = حيوي / Kore = نسائي دافئ / Fenrir = وثائقي)'
+      drive_or_direct_url:
+        description: 'رابط الفيديو من Google Drive أو استضافتك (اتركه فارغاً إذا رفعته في Releases)'
         required: false
-        default: 'Charon'
+        default: ''
 
 jobs:
-  render_cinema_reel:
+  edit_personal_video:
     runs-on: ubuntu-latest
     steps:
       - name: 📥 1. تجهيز السيرفر السحابي
         uses: actions/checkout@v4
 
-      - name: ⚙️ 2. تثبيت محركات الرندر والصوتيات عالية الدقة
+      - name: ⚙️ 2. تثبيت محركات عزل الخلفية وسحب الملفات الضخمة
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
-          pip install -q playwright edge-tts pillow numpy requests
+          pip install -q "rembg[cpu]" onnxruntime playwright pillow numpy opencv-python-headless gdown requests
           playwright install chromium
 
-      - name: 🚀 3. توليد الصوت البشري (Gemini 3.8 TTS) ورندر 60FPS بالصور
+      - name: 🚀 3. سحب الفيديو الضخم بجودته الكاملة ومونتاجه بالذكاء الاصطناعي
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          VOICE_PERSONA: ${{ github.event.inputs.voice_name || 'Charon' }}
+          VIDEO_URL: ${{ github.event.inputs.drive_or_direct_url }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat << 'EOF' > build_studio.py
-          import os, subprocess, time, wave, math, base64, urllib.request
+          cat << 'EOF' > edit_mahmoud_video.py
+          import os, glob, subprocess, time, math, urllib.request
           import numpy as np
+          import cv2
           import requests
           from pathlib import Path
-          from PIL import Image, ImageDraw, ImageChops
+          from PIL import Image, ImageDraw
+          from rembg import remove, new_session
           from playwright.sync_api import sync_playwright
 
-          os.makedirs("layers", exist_ok=True)
-          os.makedirs("assets", exist_ok=True)
+          os.makedirs("ui_layers", exist_ok=True)
+          input_video = None
 
-          # 1. سحب صور فوتوغرافية سينمائية عالية الدقة
-          print("🖼️ [1/5] جاري سحب الصور الفوتوغرافية عالية الدقة للمشاهد...", flush=True)
-          image_urls = {
-              "hero": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=900&q=85",
-              "c1": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=85",
-              "c2": "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=400&q=85",
-              "c3": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=400&q=85"
-          }
-          for key, url in image_urls.items():
+          # 1. فحص ما إذا كان هناك رابط خارجي (Google Drive أو Hostinger)
+          video_url = os.environ.get("VIDEO_URL", "").strip()
+          if video_url:
+              print(f"🌐 [1/5] جاري سحب الفيديو الضخم من الرابط المباشر: {video_url}", flush=True)
+              subprocess.run(["gdown", "--fuzzy", video_url, "-O", "raw_input.mp4"], check=True)
+              input_video = "raw_input.mp4"
+
+          # 2. فحص قسم GitHub Releases (يدعم فيديوهات حتى 2 جيجابايت)
+          if not input_video or not os.path.exists(input_video):
+              repo = os.environ.get("GH_REPO", "")
+              token = os.environ.get("GH_TOKEN", "")
+              headers = {"Authorization": f"token {token}"} if token else {}
               try:
-                  req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-                  with urllib.request.urlopen(req, timeout=10) as resp:
-                      Path(f"assets/{key}.jpg").write_bytes(resp.read())
-              except Exception:
-                  Image.new("RGB", (400, 400), (30, 41, 59)).save(f"assets/{key}.jpg")
+                  resp = requests.get(f"https://api.github.com/repos/{repo}/releases", headers=headers, timeout=15)
+                  if resp.status_code == 200:
+                      for rel in resp.json():
+                          for asset in rel.get("assets", []):
+                              name = asset.get("name", "").lower()
+                              if name.endswith((".mp4", ".mov", ".mkv", ".webm")):
+                                  dl_url = asset["browser_download_url"]
+                                  print(f"📦 [1/5] تم العثور على الفيديو الضخم في Releases ({asset['name']})! جاري السحب السريع...", flush=True)
+                                  urllib.request.urlretrieve(dl_url, "raw_input.mp4")
+                                  input_video = "raw_input.mp4"
+                                  break
+                          if input_video:
+                              break
+              except Exception as e:
+                  print(f"⚠️ فحص Releases: {e}", flush=True)
 
-          # 2. توليد التعليق البشري عبر الجيل الجديد Gemini 3.8 Flash TTS
-          print("🎙️ [2/5] جاري الاتصال بمحرك Gemini 3.8 Flash TTS لتوليد الصوت البشري...", flush=True)
-          vocalized_script = (
-              "هَلْ تَتَخَيَّلُ أَنْ تَتَحَوَّلَ أَفْكَارُكَ إِلَى فِيدْيُو سِينَمَائِيٍّ مُتَكَامِلٍ وَأَنْتَ نَائِم؟ "
-              "صُوَرٌ حَقِيقِيَّةٌ مُتَحَرِّكَة، صَوْتٌ بَشَرِيٌّ بِتَقْنِيَةِ جِيمِينَاي الجَدِيدَة، وَجَوْدَةٌ فَائِقَةٌ تَعْمَلُ بِالْخَلْفِيَّةِ عَلَى مَدَارِ السَّاعَة."
-          )
-
-          gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
-          voice_persona = os.environ.get("VOICE_PERSONA", "Charon").strip()
-          used_gemini = False
-
-          if gemini_key:
-              tts_models = [
-                  "gemini-3.8-flash-tts",
-                  "gemini-3.8-flash-lite-tts",
-                  "gemini-3.1-flash-tts-preview",
-                  "gemini-2.5-flash-preview-tts"
+          # 3. فحص المستودع العادي كخيار ثالث
+          if not input_video or not os.path.exists(input_video):
+              video_files = [
+                  f for f in (glob.glob("*.mp4") + glob.glob("*.mov") + glob.glob("*.MP4"))
+                  if "Studio_Master" not in f and "Edited_" not in f and "clean_video" not in f
               ]
-              for model_id in tts_models:
-                  try:
-                      print(f"✨ جاري طلب الصوت من النموذج: {model_id} (الشخصية: {voice_persona})...", flush=True)
-                      resp = requests.post(
-                          f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={gemini_key}",
-                          json={
-                              "contents": [{"parts": [{"text": vocalized_script}]}],
-                              "generationConfig": {
-                                  "responseModalities": ["AUDIO"],
-                                  "speechConfig": {
-                                      "voiceConfig": {
-                                          "prebuiltVoiceConfig": {"voiceName": voice_persona}
-                                      }
-                                  }
-                              }
-                          },
-                          timeout=40
-                      )
-                      if resp.status_code == 200:
-                          data = resp.json()
-                          part = data["candidates"][0]["content"]["parts"][0]["inlineData"]
-                          audio_bytes = base64.b64decode(part["data"])
-                          mime = part.get("mimeType", "audio/pcm")
-                          if "wav" in mime or audio_bytes[:4] == b"RIFF":
-                              Path("raw_voice.wav").write_bytes(audio_bytes)
-                          else:
-                              Path("raw_pcm.bin").write_bytes(audio_bytes)
-                              subprocess.run([
-                                  "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                                  "-f", "s16le", "-ar", "24000", "-ac", "1", "-i", "raw_pcm.bin",
-                                  "raw_voice.wav"
-                              ], check=True)
-                          print(f"✅ نجح توليد الصوت البشري الفائق عبر نموذج: {model_id}!", flush=True)
-                          used_gemini = True
-                          break
-                      else:
-                          print(f"⚠️ رد النموذج {model_id}: {resp.status_code} - جاري تجربة البديل التالي...", flush=True)
-                  except Exception as e:
-                      print(f"⚠️ خطأ أثناء الاتصال بـ {model_id}: {e}", flush=True)
-          else:
-              print("⚠️ لم يتم العثور على GEMINI_API_KEY في Secrets! جاري استخدام المحرك البديل...", flush=True)
+              if video_files:
+                  input_video = video_files[0]
 
-          if not used_gemini:
-              subprocess.run([
-                  "python3", "-m", "edge_tts",
-                  "--voice", "ar-SA-HamedNeural", "--rate=+2%", "--pitch=+0Hz",
-                  "--text", vocalized_script, "--write-media", "raw_voice.mp3"
-              ], check=True)
-              subprocess.run([
-                  "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                  "-i", "raw_voice.mp3", "raw_voice.wav"
-              ], check=True)
+          if not input_video or not os.path.exists(input_video):
+              raise FileNotFoundError("⚠️ لم يتم العثور على الفيديو! ارفعه في قسم Releases (حتى 2GB) أو ضع رابط Google Drive عند تشغيل الـ Action.")
 
-          # معالجة صوتية ستيريو 48kHz بفلاتر قياسية مضمونة
+          print(f"✅ تم تجهيز الفيديو الخام بأعلى جودة: {input_video}", flush=True)
+
+          # قص النهاية المهتزة (إصبع الكاميرا عند 16.4 ثانية) وتوحيد الأبعاد 1080x1920 30FPS
+          print("✂️ [2/5] قص لحظة إغلاق الكاميرا وهندسة الصوت إذاعياً...", flush=True)
           subprocess.run([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "raw_voice.wav",
-              "-af", "equalizer=f=110:width_type=o:width=2:g=3.5,equalizer=f=4000:width_type=o:width=2:g=2.5,acompressor=threshold=-16dB:ratio=2.5:attack=5:release=50:makeup=3dB",
-              "-ar", "48000", "-ac", "2", "voice_stereo.wav"
-          ], check=True)
-
-          with wave.open("voice_stereo.wav", "rb") as wf:
-              n_samples = wf.getnframes()
-              audio_rate = wf.getframerate()
-              pcm_stereo = np.frombuffer(wf.readframes(n_samples), dtype=np.int16).astype(np.float32) / 32768.0
-              raw_pcm = pcm_stereo[0::2]
-
-          duration = (n_samples / audio_rate) + 1.2
-          fps = 60
-          total_frames = int(duration * fps)
-
-          # 3. تصميم المؤثرات الصوتية السينمائية (Stereo 320kbps)
-          print("🔊 [3/5] تصميم المؤثرات الصوتية السينمائية (Stereo 320kbps)...", flush=True)
-          subprocess.run([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-              "-i", f"aevalsrc='0.025*sin(2*PI*55*t)+0.015*sin(2*PI*110*t)':s=48000:d={duration}",
-              "-af", f"afade=t=in:st=0:d=1.0,afade=t=out:st={duration-1.2}:d=1.2",
-              "-ar", "48000", "-ac", "2", "ambient.wav"
-          ], check=True)
-
-          subprocess.run([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-              "-i", "anoisesrc=d=0.38:c=pink:r=48000:a=0.16",
-              "-af", "bandpass=f=850:width_type=h:w=550,afade=t=in:st=0:d=0.12,afade=t=out:st=0.18:d=0.20",
-              "-ar", "48000", "-ac", "2", "whoosh.wav"
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+              "-i", input_video, "-t", "16.4",
+              "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30",
+              "-an", "clean_video.mp4"
           ], check=True)
 
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-              "-i", "ambient.wav", "-i", "voice_stereo.wav", "-i", "whoosh.wav",
-              "-filter_complex",
-              "[2:a]adelay=200|200[w0];[2:a]adelay=1300|1300[w1];[2:a]adelay=4100|4100[w2];[2:a]adelay=6900|6900[w3];"
-              "[0:a][1:a][w0][w1][w2][w3]amix=inputs=6:duration=first:dropout_transition=0,volume=2.2[aout]",
-              "-map", "[aout]", "-c:a", "aac", "-b:a", "320k", "-ar", "48000", "-ac", "2", "final_audio.aac"
+              "-i", input_video, "-t", "16.4",
+              "-af", "highpass=f=80,equalizer=f=130:width_type=o:width=2:g=3.5,equalizer=f=3800:width_type=o:width=2:g=3.0,acompressor=threshold=-18dB:ratio=3:attack=5:release=60:makeup=4dB",
+              "-ar", "48000", "-ac", "2", "mahmoud_voice.wav"
           ], check=True)
 
-          # 4. بناء طبقات التصميم الغنية بالصور الفوتوغرافية
-          print("🎨 [4/5] بناء المشاهد البصرية والصور عالية الدقة...", flush=True)
-          hero_uri = Path("assets/hero.jpg").resolve().as_uri()
-          c1_uri = Path("assets/c1.jpg").resolve().as_uri()
-          c2_uri = Path("assets/c2.jpg").resolve().as_uri()
-          c3_uri = Path("assets/c3.jpg").resolve().as_uri()
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+              "-i", "anoisesrc=d=0.32:c=pink:r=48000:a=0.20",
+              "-af", "bandpass=f=950:width_type=h:w=600,afade=t=in:st=0:d=0.08,afade=t=out:st=0.14:d=0.18",
+              "-ar", "48000", "-ac", "2", "sfx_pop.wav"
+          ], check=True)
 
-          html_layers = f"""<!DOCTYPE html>
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+              "-i", "aevalsrc='0.22*sin(2*PI*(140-70*t)*t)':s=48000:d=0.65",
+              "-af", "afade=t=out:st=0.2:d=0.45", "-ar", "48000", "-ac", "2", "sfx_drop.wav"
+          ], check=True)
+
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+              "-i", "mahmoud_voice.wav", "-i", "sfx_pop.wav", "-i", "sfx_drop.wav",
+              "-filter_complex",
+              "[1:a]adelay=4500|4500[s1];"
+              "[1:a]adelay=6800|6800[s2];"
+              "[1:a]adelay=9100|9100[s3];"
+              "[2:a]adelay=11100|11100[s4];"
+              "[0:a][s1][s2][s3][s4]amix=inputs=5:duration=first:dropout_transition=0:weights='1.8 0.65 0.65 0.65 0.85'[aout]",
+              "-map", "[aout]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"
+          ], check=True)
+
+          print("🎨 [3/5] توليد الكروت الهولوجرامية والكابشنات العربية...", flush=True)
+          captions_data = [
+              ("cap0", "طيب هذا الفيديو لاختبار", "الذكاء الاصطناعي 🤖", "0.0, 2.3"),
+              ("cap1", "ورح نشوف كيف رح يمنّتج لي", "هذا الفيديو تلقائياً 🎬", "2.3, 4.5"),
+              ("cap2", "هون رح يحط لكم", "شي رائع جداً ✨", "4.5, 6.8"),
+              ("cap3", "وهون رح يبهركم", "فيه أكثر وأكثر 🚀", "6.8, 9.0"),
+              ("cap4", "وهون رح ينزل عندكم", "الكابشن التفاعلي 💬", "9.0, 11.1"),
+              ("cap5", "وأكيد الخلفية", "رح تتغير بالكامل 🌌", "11.1, 13.3"),
+              ("cap6", "الكرة بملعبك.. فرجيني", "شو رح يطلع معك! 🔥", "13.3, 16.4"),
+          ]
+
+          caps_html = ""
+          for cid, line1, line2, _ in captions_data:
+              caps_html += f"""
+              <div id="{cid}" class="cap-box">
+                <div class="cap-l1">{line1}</div>
+                <div class="cap-l2">{line2}</div>
+              </div>"""
+
+          html_ui = f"""<!DOCTYPE html>
           <html lang="ar" dir="rtl">
           <head>
           <meta charset="UTF-8">
-          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Tajawal:wght@500;700;800&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
           <style>
             * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-            body {{ background: transparent; color: #fff; font-family: 'Cairo', sans-serif; width: 1080px; padding: 30px; }}
-            .item-wrap {{ width: 960px; padding: 20px; margin-bottom: 50px; }}
-            #header {{
-              text-align: center; position: relative;
-              background: linear-gradient(180deg, rgba(15,23,42,0.88) 0%, rgba(9,13,24,0.95) 100%);
-              border: 2px solid rgba(249,115,22,0.45);
-              border-radius: 42px; padding: 36px 40px;
-              box-shadow: 0 25px 50px rgba(0,0,0,0.65); overflow: hidden;
+            body {{ background: transparent; font-family: 'Cairo', sans-serif; color: #fff; width: 1080px; padding: 20px; }}
+            .ar-card {{
+              width: 470px; padding: 24px 28px; margin-bottom: 30px;
+              background: linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,41,59,0.88));
+              border: 2.5px solid #f97316; border-radius: 30px;
+              box-shadow: 0 20px 40px rgba(0,0,0,0.65);
             }}
-            .hero-bg-img {{
-              position: absolute; inset: 0; width: 100%; height: 100%;
-              object-fit: cover; opacity: 0.22; filter: contrast(1.15);
+            .ar-card.cyan {{ border-color: #38bdf8; }}
+            .ar-badge {{
+              display: inline-block; background: #f97316; color: #fff;
+              font-size: 19px; font-weight: 900; padding: 4px 16px;
+              border-radius: 20px; margin-bottom: 10px;
             }}
-            .header-content {{ position: relative; z-index: 2; }}
-            .pill-badge {{
-              display: inline-flex; align-items: center; gap: 14px;
-              background: linear-gradient(135deg, #f97316, #ea580c);
-              padding: 10px 34px; border-radius: 50px; margin-bottom: 22px;
-              box-shadow: 0 10px 25px rgba(249,115,22,0.45);
+            .cyan .ar-badge {{ background: #0284c7; }}
+            .ar-title {{ font-size: 32px; font-weight: 900; color: #fff; line-height: 1.25; margin-bottom: 6px; }}
+            .ar-sub {{ font-size: 22px; font-weight: 700; color: #cbd5e1; }}
+            .bg-banner {{
+              width: 680px; padding: 16px 32px; margin-bottom: 30px;
+              background: linear-gradient(90deg, #f97316, #0284c7);
+              border-radius: 50px; text-align: center;
+              font-size: 28px; font-weight: 900; color: #fff;
+              box-shadow: 0 15px 35px rgba(249,115,22,0.5);
             }}
-            .pill-text {{ font-size: 26px; font-weight: 900; color: #fff; }}
-            .hero-title {{ font-size: 64px; font-weight: 900; line-height: 1.25; color: #ffffff; }}
-            .hero-title .grad {{ color: #fb923c; }}
-            .photo-card {{
-              width: 960px;
-              background: linear-gradient(135deg, rgba(30,41,59,0.96) 0%, rgba(11,17,30,0.98) 100%);
-              border: 2.5px solid rgba(255,255,255,0.22);
-              border-right: 12px solid #f97316;
-              border-radius: 40px; padding: 28px 34px;
-              display: flex; align-items: center; gap: 34px;
-              box-shadow: 0 24px 48px rgba(0,0,0,0.7); position: relative;
+            .cap-box {{
+              width: 920px; padding: 24px 36px; margin-bottom: 30px;
+              background: rgba(9, 13, 24, 0.90);
+              border: 3px solid rgba(255,255,255,0.22);
+              border-bottom: 8px solid #f97316;
+              border-radius: 34px; text-align: center;
+              box-shadow: 0 20px 45px rgba(0,0,0,0.75);
             }}
-            .photo-card.blue {{ border-right-color: #38bdf8; }}
-            .photo-card.emerald {{ border-right-color: #10b981; }}
-            .thumb-wrapper {{
-              width: 200px; height: 200px; border-radius: 28px;
-              position: relative; flex-shrink: 0; overflow: hidden;
-              border: 3px solid rgba(249,115,22,0.7);
-              box-shadow: 0 15px 30px rgba(0,0,0,0.5);
-            }}
-            .blue .thumb-wrapper {{ border-color: rgba(56,189,248,0.7); }}
-            .emerald .thumb-wrapper {{ border-color: rgba(16,185,129,0.7); }}
-            .thumb-img {{ width: 100%; height: 100%; object-fit: cover; }}
-            .thumb-badge {{
-              position: absolute; bottom: 10px; right: 10px;
-              background: rgba(9,13,24,0.9); border: 2px solid #f97316;
-              color: #fb923c; font-size: 20px; font-weight: 900;
-              padding: 4px 14px; border-radius: 14px;
-            }}
-            .blue .thumb-badge {{ border-color: #38bdf8; color: #38bdf8; }}
-            .emerald .thumb-badge {{ border-color: #10b981; color: #10b981; }}
-            .card-body {{ flex: 1; }}
-            .card-tag {{
-              display: inline-block; font-size: 22px; font-weight: 800;
-              color: #fb923c; background: rgba(249,115,22,0.15);
-              padding: 5px 18px; border-radius: 20px; margin-bottom: 12px;
-            }}
-            .blue .card-tag {{ color: #7dd3fc; background: rgba(56,189,248,0.15); }}
-            .emerald .card-tag {{ color: #6ee7b7; background: rgba(16,185,129,0.15); }}
-            .card-title {{ font-size: 40px; font-weight: 900; margin-bottom: 10px; color: #ffffff; line-height: 1.2; }}
-            .card-desc {{ font-size: 27px; font-weight: 700; color: #cbd5e1; font-family: 'Tajawal', sans-serif; line-height: 1.42; }}
-            #footer {{
-              width: 960px; background: linear-gradient(90deg, rgba(15,23,42,0.96), rgba(30,41,59,0.96));
-              border: 2px solid rgba(56,189,248,0.4); border-radius: 32px;
-              padding: 24px 40px; display: flex; align-items: center; justify-content: space-between;
-              box-shadow: 0 15px 35px rgba(0,0,0,0.6);
-            }}
-            .status-text {{ font-size: 29px; font-weight: 800; color: #f8fafc; }}
-            .counter-num {{ font-size: 32px; font-weight: 900; color: #38bdf8; letter-spacing: 1px; }}
+            .cap-l1 {{ font-size: 40px; font-weight: 800; color: #f8fafc; line-height: 1.25; }}
+            .cap-l2 {{ font-size: 50px; font-weight: 900; color: #fb923c; line-height: 1.3; }}
           </style>
           </head>
           <body>
-            <div id="header" class="item-wrap">
-              <img class="hero-bg-img" src="{hero_uri}" />
-              <div class="header-content">
-                <div class="pill-badge"><span class="pill-text">🎬 استوديو الإنتاج السينمائي • GEMINI 3.8 TTS</span></div>
-                <h1 class="hero-title">من فكرة خام إلى<br><span class="grad">إنتاج بصري وصوتي فاخر</span></h1>
-              </div>
+            <div id="card_right" class="ar-card">
+              <span class="ar-badge">⚡ تتبع إشارة اليد • AI</span>
+              <div class="ar-title">شي رائع جداً!</div>
+              <div class="ar-sub">كروت زجاجية مرتبطة بحركتك تلقائياً</div>
             </div>
-            <div id="c1" class="photo-card item-wrap">
-              <div class="thumb-wrapper">
-                <img class="thumb-img" src="{c1_uri}" />
-                <div class="thumb-badge">60 FPS</div>
-              </div>
-              <div class="card-body">
-                <span class="card-tag">01 • مشاهد وصور حية</span>
-                <div class="card-title">صور حقيقية وتحريك 60 إطاراً</div>
-                <div class="card-desc">دمج الصور الفوتوغرافية مع إضاءات زجاجية متحركة وزوم سينمائي تفاعلي</div>
-              </div>
+            <div id="card_left" class="ar-card cyan">
+              <span class="ar-badge">🚀 إبهار بصري • PRO</span>
+              <div class="ar-title">عزل خلفية وإضاءة حية</div>
+              <div class="ar-sub">تحويل الغرفة إلى استوديو سينمائي</div>
             </div>
-            <div id="c2" class="photo-card blue item-wrap">
-              <div class="thumb-wrapper">
-                <img class="thumb-img" src="{c2_uri}" />
-                <div class="thumb-badge">GEMINI 3.8</div>
-              </div>
-              <div class="card-body">
-                <span class="card-tag">02 • تصميم الصوت البشري</span>
-                <div class="card-title">معلق بشري يتنفس ويمثل النص</div>
-                <div class="card-desc">مدعوم بمحرك Gemini 3.8 Flash TTS الجديد مع هندسة صوتية 320kbps</div>
-              </div>
-            </div>
-            <div id="c3" class="photo-card emerald item-wrap">
-              <div class="thumb-wrapper">
-                <img class="thumb-img" src="{c3_uri}" />
-                <div class="thumb-badge">AUTO 24/7</div>
-              </div>
-              <div class="card-body">
-                <span class="card-tag">03 • مصنع سحابي ذاتي</span>
-                <div class="card-title">رندر سحابي واستلام عبر التليجرام</div>
-                <div class="card-desc">خط إنتاج أوتوماتيكي ينجز فيديوهاتك بالخلفية دون استهلاك جهازك</div>
-              </div>
-            </div>
-            <div id="footer" class="item-wrap">
-              <div class="status-text">⚡ جودة الرندر: 1080p • 60 FPS • Stereo</div>
-              <div class="counter-num">GEMINI 3.8 MASTER</div>
-            </div>
+            <div id="bg_alert" class="bg-banner">✨ تم تفعيل الاستوديو السينمائي الذكي</div>
+            {caps_html}
           </body>
           </html>"""
 
-          Path("layers.html").write_text(html_layers, encoding="utf-8")
+          Path("ui.html").write_text(html_ui, encoding="utf-8")
 
           with sync_playwright() as p:
               browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
-              page = browser.new_page(viewport={"width": 1080, "height": 2600})
-              page.goto(f"file://{os.path.abspath('layers.html')}", wait_until="networkidle")
-              page.wait_for_timeout(800)
-              for el_id in ["header", "c1", "c2", "c3", "footer"]:
-                  page.locator(f"#{el_id}").screenshot(path=f"layers/{el_id}.png", omit_background=True, animations="disabled")
+              page = browser.new_page(viewport={"width": 1080, "height": 3000})
+              page.goto(f"file://{os.path.abspath('ui.html')}", wait_until="networkidle")
+              page.wait_for_timeout(600)
+              for el in ["card_right", "card_left", "bg_alert"] + [c[0] for c in captions_data]:
+                  page.locator(f"#{el}").screenshot(path=f"ui_layers/{el}.png", omit_background=True)
               browser.close()
 
-          # 5. محرك التحريك السينمائي المستمر 60FPS
-          print(f"🎬 [5/5] جاري رندر {total_frames} إطاراً بسرعة 60FPS...", flush=True)
           W, H = 1080, 1920
           y_idx, x_idx = np.ogrid[:H, :W]
-          d1 = np.clip(np.sqrt((x_idx - W*0.85)**2 + (y_idx - H*0.12)**2) / (H*0.58), 0, 1)
-          d2 = np.clip(np.sqrt((x_idx - W*0.15)**2 + (y_idx - H*0.85)**2) / (H*0.58), 0, 1)
-          r = (6 + 75*(1-d1) + 14*(1-d2)).clip(0, 255).astype(np.uint8)
-          g = (10 + 32*(1-d1) + 52*(1-d2)).clip(0, 255).astype(np.uint8)
-          b = (20 + 10*(1-d1) + 95*(1-d2)).clip(0, 255).astype(np.uint8)
-          base_bg = Image.fromarray(np.stack([r, g, b], axis=-1), "RGB").convert("RGBA")
+          d_center = np.clip(np.sqrt((x_idx - W*0.5)**2 + (y_idx - H*0.42)**2) / (H*0.55), 0, 1)
 
-          grid_draw = ImageDraw.Draw(base_bg)
-          for gx in range(0, W, 72):
-              grid_draw.line([(gx, 0), (gx, H)], fill=(255, 255, 255, 11), width=1)
-          for gy in range(0, H, 72):
-              grid_draw.line([(0, gy), (W, gy)], fill=(255, 255, 255, 11), width=1)
+          bg1_arr = np.stack([
+              (16 + 40*(1-d_center)).astype(np.uint8),
+              (22 + 30*(1-d_center)).astype(np.uint8),
+              (38 + 45*(1-d_center)).astype(np.uint8)
+          ], axis=-1)
+          bg_stage1 = Image.fromarray(bg1_arr, "RGB").convert("RGBA")
 
-          img_header = Image.open("layers/header.png").convert("RGBA")
-          img_c1 = Image.open("layers/c1.png").convert("RGBA")
-          img_c2 = Image.open("layers/c2.png").convert("RGBA")
-          img_c3 = Image.open("layers/c3.png").convert("RGBA")
-          img_footer = Image.open("layers/footer.png").convert("RGBA")
+          d_top = np.clip(np.sqrt((x_idx - W*0.8)**2 + (y_idx - H*0.18)**2) / (H*0.5), 0, 1)
+          d_bot = np.clip(np.sqrt((x_idx - W*0.2)**2 + (y_idx - H*0.75)**2) / (H*0.5), 0, 1)
+          bg2_arr = np.stack([
+              (8 + 95*(1-d_top) + 15*(1-d_bot)).clip(0, 255).astype(np.uint8),
+              (12 + 38*(1-d_top) + 65*(1-d_bot)).clip(0, 255).astype(np.uint8),
+              (26 + 12*(1-d_top) + 115*(1-d_bot)).clip(0, 255).astype(np.uint8)
+          ], axis=-1)
+          bg_stage2 = Image.fromarray(bg2_arr, "RGB").convert("RGBA")
+          g_draw = ImageDraw.Draw(bg_stage2)
+          for gx in range(0, W, 68):
+              g_draw.line([(gx, 0), (gx, H)], fill=(255, 255, 255, 16), width=1)
+          for gy in range(0, H, 68):
+              g_draw.line([(0, gy), (W, gy)], fill=(255, 255, 255, 16), width=1)
 
-          np.random.seed(42)
-          particles = [
-              {
-                  "x": float(np.random.randint(60, W-60)),
-                  "y": float(np.random.randint(100, H-100)),
-                  "r": int(np.random.randint(4, 11)),
-                  "spd": float(np.random.uniform(35, 75)),
-                  "col": (249, 115, 22, 95) if k % 2 == 0 else (56, 189, 248, 95)
-              }
-              for k in range(26)
-          ]
+          ui_imgs = {
+              name: Image.open(f"ui_layers/{name}.png").convert("RGBA")
+              for name in ["card_right", "card_left", "bg_alert"] + [c[0] for c in captions_data]
+          }
 
-          def ease_out_back(x):
+          def ease_back(x):
               x = float(np.clip(x, 0.0, 1.0))
               return 1.0 + 2.5 * ((x - 1.0) ** 3) + 1.5 * ((x - 1.0) ** 2)
 
-          def add_shimmer(card_rgba, progress):
-              if not (0.0 < progress < 1.0):
-                  return card_rgba
-              cw, ch = card_rgba.size
-              out = card_rgba.copy()
-              sh = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
-              sdr = ImageDraw.Draw(sh)
-              sx = int((1.2 - progress * 1.4) * cw)
-              pts = [(sx, 0), (sx + 140, 0), (sx + 40, ch), (sx - 100, ch)]
-              sdr.polygon(pts, fill=(255, 255, 255, 42))
-              sh.putalpha(ImageChops.multiply(sh.getchannel("A"), card_rgba.getchannel("A")))
-              return Image.alpha_composite(out, sh)
-
-          def place_transformed(canvas, layer, center_x, center_y, scale=1.0, alpha=1.0, shimmer_p=-1.0):
+          def paste_ui(canvas, img, cx, cy, scale=1.0, alpha=1.0):
               if alpha <= 0.01 or scale <= 0.1:
                   return
-              work = add_shimmer(layer, shimmer_p) if 0.0 < shimmer_p < 1.0 else layer
-              if abs(scale - 1.0) > 0.005:
-                  nw = max(10, int(work.width * scale))
-                  nh = max(10, int(work.height * scale))
-                  work = work.resize((nw, nh), Image.Resampling.BILINEAR)
+              work = img
+              if abs(scale - 1.0) > 0.01:
+                  work = work.resize((max(10, int(work.width*scale)), max(10, int(work.height*scale))), Image.Resampling.BILINEAR)
               if alpha < 0.99:
                   work = work.copy()
-                  a_ch = work.getchannel("A").point(lambda p: int(p * alpha))
-                  work.putalpha(a_ch)
-              px = int(center_x - work.width / 2)
-              py = int(center_y - work.height / 2)
-              canvas.paste(work, (px, py), work)
+                  work.putalpha(work.getchannel("A").point(lambda p: int(p * alpha)))
+              canvas.paste(work, (int(cx - work.width/2), int(cy - work.height/2)), work)
+
+          print("🤖 [4/5] بدء عزل الخلفية بالذكاء الاصطناعي وتركيب الموشن جرافيك...", flush=True)
+          session = new_session("u2net_human_seg")
+          cap = cv2.VideoCapture("clean_video.mp4")
+          fps = 30
+          total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
           ffmpeg_proc = subprocess.Popen([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
               "-f", "rawvideo", "-vcodec", "rawvideo",
               "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", str(fps), "-i", "-",
               "-i", "final_audio.aac", "-c:v", "libx264", "-preset", "superfast",
-              "-crf", "15", "-pix_fmt", "yuv420p", "-c:a", "copy",
-              "Studio_Master_Reel.mp4"
+              "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy",
+              "-shortest", "Edited_Personal_Reel.mp4"
           ], stdin=subprocess.PIPE)
 
+          prev_mask = None
           t0 = time.time()
-          for i in range(total_frames):
-              t = i / fps
-              frame = base_bg.copy()
-              dr = ImageDraw.Draw(frame)
+          np.random.seed(7)
+          particles = [
+              {"x": float(np.random.randint(50, W-50)), "y": float(np.random.randint(80, H-80)), "r": int(np.random.randint(5, 12)), "s": float(np.random.uniform(45, 90))}
+              for _ in range(28)
+          ]
 
-              for pt in particles:
-                  py_curr = (pt["y"] - t * pt["spd"]) % (H - 100) + 50
-                  px_curr = pt["x"] + math.sin(t * 2.0 + pt["r"]) * 18
-                  r_sz = pt["r"]
-                  dr.ellipse([px_curr-r_sz, py_curr-r_sz, px_curr+r_sz, py_curr+r_sz], fill=pt["col"])
+          frame_idx = 0
+          while True:
+              ret, bgr = cap.read()
+              if not ret:
+                  break
+              t = frame_idx / fps
+              rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
-              p_h = ease_out_back((t - 0.05) / 0.65)
-              a_h = float(np.clip((t - 0.05) / 0.35, 0, 1))
-              hover_h = math.sin(t * 2.2) * 6.0 if t > 0.8 else 0.0
-              place_transformed(
-                  frame, img_header,
-                  center_x=W/2, center_y=220 - (1 - p_h) * 90 + hover_h,
-                  scale=0.92 + 0.08 * min(1.0, p_h), alpha=a_h, shimmer_p=(t - 0.6) / 1.1
-              )
+              small_rgb = cv2.resize(rgb, (360, 640))
+              mask_small = np.array(remove(Image.fromarray(small_rgb), session=session, only_mask=True), dtype=np.float32) / 255.0
+              if prev_mask is not None:
+                  mask_small = 0.72 * mask_small + 0.28 * prev_mask
+              prev_mask = mask_small
+              mask_full = cv2.resize(mask_small, (W, H), interpolation=cv2.INTER_LINEAR)
+              mask_full = cv2.GaussianBlur(mask_full, (9, 9), 0)
 
-              cards_cfg = [
-                  (img_c1, 1.2, 4.0, 580),
-                  (img_c2, 4.0, 6.8, 910),
-                  (img_c3, 6.8, duration, 1240)
-              ]
-              for idx, (c_img, t_enter, t_spot_end, base_cy) in enumerate(cards_cfg):
-                  if t >= t_enter:
-                      p_in = ease_out_back((t - t_enter) / 0.65)
-                      a_in = float(np.clip((t - t_enter) / 0.35, 0, 1))
-                      is_spotlight = (t_enter <= t < t_spot_end)
-                      target_scale = 1.035 if is_spotlight else 0.965
-                      float_y = math.sin(t * 2.6 + idx * 1.5) * 7.0
-                      slide_x = (1.0 - p_in) * 260
-                      sh_prog = ((t - t_enter - 0.3) % 3.5) / 1.0
+              if t < 11.1:
+                  canvas = bg_stage1.copy()
+              else:
+                  canvas = bg_stage2.copy()
+                  dr = ImageDraw.Draw(canvas)
+                  for idx_p, pt in enumerate(particles):
+                      py = (pt["y"] - (t - 11.1) * pt["s"] * 2.2) % (H - 100) + 50
+                      px = pt["x"] + math.sin(t * 3.0 + idx_p) * 20
+                      col = (249, 115, 22, 140) if idx_p % 2 == 0 else (56, 189, 248, 140)
+                      dr.ellipse([px-pt["r"], py-pt["r"], px+pt["r"], py+pt["r"]], fill=col)
 
-                      place_transformed(
-                          frame, c_img,
-                          center_x=W/2 + slide_x, center_y=base_cy + float_y,
-                          scale=target_scale * min(1.05, max(0.8, p_in)),
-                          alpha=a_in if is_spotlight or t > 8.0 else a_in * 0.88,
-                          shimmer_p=sh_prog
-                      )
+              person_pil = Image.fromarray(rgb, "RGB").convert("RGBA")
+              person_pil.putalpha(Image.fromarray((mask_full * 255).clip(0, 255).astype(np.uint8)))
+              canvas.alpha_composite(person_pil)
 
-              s_idx = int(t * audio_rate)
-              chunk = raw_pcm[s_idx : s_idx + 1200] if s_idx < len(raw_pcm) else np.zeros(100)
-              rms = float(np.sqrt(np.mean(chunk**2))) if len(chunk) > 0 else 0.0
-              energy = min(1.0, rms * 6.8)
+              if 11.05 <= t <= 11.45:
+                  flash_alpha = int(160 * (1.0 - abs(t - 11.2) / 0.25))
+                  if flash_alpha > 0:
+                      fl = Image.new("RGBA", (W, H), (249, 115, 22, max(0, min(180, flash_alpha))))
+                      canvas = Image.alpha_composite(canvas, fl)
 
-              num_bars = 32
-              bar_w, gap = 15, 9
-              start_x = (W - (num_bars * (bar_w + gap))) // 2
-              for b in range(num_bars):
-                  wave_mod = 0.30 + 0.70 * abs(math.sin(t * 10.0 + b * 0.4))
-                  bh = max(12, min(90, int(12 + 80 * energy * wave_mod)))
-                  bx = start_x + b * (bar_w + gap)
-                  by_bar = 1525 - bh // 2
-                  col = (249, 115, 22, 235) if b % 2 == 0 else (56, 189, 248, 235)
-                  dr.rounded_rectangle([bx, by_bar, bx + bar_w, by_bar + bh], radius=7, fill=col)
+              if 4.5 <= t <= 10.5:
+                  p1 = ease_back((t - 4.5) / 0.5)
+                  a1 = float(np.clip((t - 4.5) / 0.25, 0, 1) * np.clip((10.5 - t) / 0.4, 0, 1))
+                  hover1 = math.sin(t * 4.0) * 8.0
+                  paste_ui(canvas, ui_imgs["card_right"], cx=770, cy=250 + hover1, scale=max(0.2, p1), alpha=a1)
 
-              p_f = ease_out_back((t - 0.6) / 0.6)
-              a_f = float(np.clip((t - 0.6) / 0.4, 0, 1))
-              place_transformed(frame, img_footer, W/2, 1690 + (1 - p_f) * 60, scale=1.0, alpha=a_f)
+              if 6.8 <= t <= 11.0:
+                  p2 = ease_back((t - 6.8) / 0.5)
+                  a2 = float(np.clip((t - 6.8) / 0.25, 0, 1) * np.clip((11.0 - t) / 0.4, 0, 1))
+                  hover2 = math.cos(t * 4.0) * 8.0
+                  paste_ui(canvas, ui_imgs["card_left"], cx=310, cy=520 + hover2, scale=max(0.2, p2), alpha=a2)
 
-              prog_w = int(960 * (i / max(1, total_frames - 1)))
-              dr.rounded_rectangle([60, 1825, 1020, 1839], radius=7, fill=(255, 255, 255, 45))
-              dr.rounded_rectangle([60, 1825, 60 + max(16, prog_w), 1839], radius=7, fill=(249, 115, 22, 255))
+              if 11.1 <= t <= 14.8:
+                  p_bg = ease_back((t - 11.1) / 0.5)
+                  a_bg = float(np.clip((t - 11.1) / 0.25, 0, 1) * np.clip((14.8 - t) / 0.4, 0, 1))
+                  paste_ui(canvas, ui_imgs["bg_alert"], cx=W/2, cy=160, scale=max(0.2, p_bg), alpha=a_bg)
+
+              for cid, _, _, t_range in captions_data:
+                  t_start, t_end = [float(x) for x in t_range.split(",")]
+                  if t_start <= t < t_end:
+                      p_cap = ease_back((t - t_start) / 0.35)
+                      cap_scale = (1.06 if cid == "cap4" else 1.0) * min(1.05, max(0.7, p_cap))
+                      paste_ui(canvas, ui_imgs[cid], cx=W/2, cy=1640, scale=cap_scale, alpha=1.0)
+                      break
 
               try:
-                  ffmpeg_proc.stdin.write(frame.tobytes())
+                  ffmpeg_proc.stdin.write(canvas.tobytes())
               except BrokenPipeError:
                   break
+              frame_idx += 1
+              if frame_idx % 60 == 0 or frame_idx == total_frames:
+                  print(f"⚡ تم عزل ومونتاج {frame_idx}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
 
-              if i % 120 == 0 or i == total_frames - 1:
-                  print(f"⚡ تقدم الرندر (60FPS): {i+1}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
-
+          cap.release()
           try:
               ffmpeg_proc.stdin.close()
           except Exception:
               pass
           ffmpeg_proc.wait()
-          print("✅ اكتمل إنتاج الفيديو السينمائي بنجاح!", flush=True)
+          print("✅ [5/5] اكتمل مونتاج الفيديو الشخصي بأعلى جودة!", flush=True)
           EOF
-          python3 -u build_studio.py
+          python3 -u edit_mahmoud_video.py
 
-      - name: 📦 4. رفع الفيديو الجاهز للتحميل المباشر
+      - name: 📦 4. رفع الفيديو الشخصي الممنتج للتحميل
         uses: actions/upload-artifact@v4
         with:
-          name: 🎬-GEMINI-3.8-PRO-Reel
-          path: Studio_Master_Reel.mp4
+          name: 🎬-Mahmoud-AI-Edited-Reel
+          path: Edited_Personal_Reel.mp4
           retention-days: 30
