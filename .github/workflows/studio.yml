@@ -68,25 +68,19 @@ jobs:
           used_gemini = False
 
           if gemini_key:
-              # يجرب أولاً العملاق الجديد 3.8 ثم 3.8 Lite ثم 3.1 ثم 2.5 لضمان العمل 100%
               tts_models = [
                   "gemini-3.8-flash-tts",
                   "gemini-3.8-flash-lite-tts",
                   "gemini-3.1-flash-tts-preview",
                   "gemini-2.5-flash-preview-tts"
               ]
-              director_prompt = (
-                  "Voice Design: معلق إعلانات سينمائي ووثائقي محترف، صوت بشري دافئ وعميق وواثق، "
-                  "مع تنفس طبيعي ووقفات درامية جذابة بين الجمل. اقرأ النص العربي التالي بوضوح وفخامة:\n"
-                  f"{vocalized_script}"
-              )
               for model_id in tts_models:
                   try:
                       print(f"✨ جاري طلب الصوت من النموذج: {model_id} (الشخصية: {voice_persona})...", flush=True)
                       resp = requests.post(
                           f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent?key={gemini_key}",
                           json={
-                              "contents": [{"parts": [{"text": director_prompt}]}],
+                              "contents": [{"parts": [{"text": vocalized_script}]}],
                               "generationConfig": {
                                   "responseModalities": ["AUDIO"],
                                   "speechConfig": {
@@ -120,7 +114,7 @@ jobs:
                   except Exception as e:
                       print(f"⚠️ خطأ أثناء الاتصال بـ {model_id}: {e}", flush=True)
           else:
-              print("⚠️ لم يتم العثور على GEMINI_API_KEY في Secrets! يرجى إضافته لتفعيل الصوت البشري.", flush=True)
+              print("⚠️ لم يتم العثور على GEMINI_API_KEY في Secrets! جاري استخدام المحرك البديل...", flush=True)
 
           if not used_gemini:
               subprocess.run([
@@ -133,10 +127,10 @@ jobs:
                   "-i", "raw_voice.mp3", "raw_voice.wav"
               ], check=True)
 
-          # معالجة صوتية ستيريو 48kHz بجودة استوديو
+          # معالجة صوتية ستيريو 48kHz بفلاتر قياسية مضمونة
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "raw_voice.wav",
-              "-af", "highpass=f=70,trebles=g=2,extrastereo=m=1.35,aecho=0.8:0.88:22:0.10,loudnorm=I=-14:TP=-1.5:LRA=11",
+              "-af", "equalizer=f=110:width_type=o:width=2:g=3.5,equalizer=f=4000:width_type=o:width=2:g=2.5,acompressor=threshold=-16dB:ratio=2.5:attack=5:release=50:makeup=3dB",
               "-ar", "48000", "-ac", "2", "voice_stereo.wav"
           ], check=True)
 
@@ -154,24 +148,24 @@ jobs:
           print("🔊 [3/5] تصميم المؤثرات الصوتية السينمائية (Stereo 320kbps)...", flush=True)
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-              "-i", f"aevalsrc='0.024*sin(2*PI*55*t)+0.016*sin(2*PI*110*t)+0.01*sin(2*PI*165*t)':s=48000:d={duration}",
-              "-af", f"stereowiden,afade=t=in:st=0:d=1.0,afade=t=out:st={duration-1.2}:d=1.2",
+              "-i", f"aevalsrc='0.025*sin(2*PI*55*t)+0.015*sin(2*PI*110*t)':s=48000:d={duration}",
+              "-af", f"afade=t=in:st=0:d=1.0,afade=t=out:st={duration-1.2}:d=1.2",
               "-ar", "48000", "-ac", "2", "ambient.wav"
           ], check=True)
 
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-              "-i", "anoisesrc=d=0.38:c=pink:r=48000:a=0.14",
-              "-af", "bandpass=f=900:width_type=h:w=600,afade=t=in:st=0:d=0.12,afade=t=out:st=0.18:d=0.20,pan=stereo|c0=c0|c1=c0",
-              "whoosh.wav"
+              "-i", "anoisesrc=d=0.38:c=pink:r=48000:a=0.16",
+              "-af", "bandpass=f=850:width_type=h:w=550,afade=t=in:st=0:d=0.12,afade=t=out:st=0.18:d=0.20",
+              "-ar", "48000", "-ac", "2", "whoosh.wav"
           ], check=True)
 
           subprocess.run([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
               "-i", "ambient.wav", "-i", "voice_stereo.wav", "-i", "whoosh.wav",
               "-filter_complex",
-              "[2:a]adelay=200|200[w0];[2:a]adelay=1400|1400[w1];[2:a]adelay=4500|4500[w2];[2:a]adelay=7600|7600[w3];"
-              "[0:a][1:a][w0][w1][w2][w3]amix=inputs=6:duration=first:dropout_transition=0:weights='0.32 1.7 0.5 0.5 0.5 0.5'[aout]",
+              "[2:a]adelay=200|200[w0];[2:a]adelay=1300|1300[w1];[2:a]adelay=4100|4100[w2];[2:a]adelay=6900|6900[w3];"
+              "[0:a][1:a][w0][w1][w2][w3]amix=inputs=6:duration=first:dropout_transition=0,volume=2.2[aout]",
               "-map", "[aout]", "-c:a", "aac", "-b:a", "320k", "-ar", "48000", "-ac", "2", "final_audio.aac"
           ], check=True)
 
@@ -224,7 +218,7 @@ jobs:
             .photo-card.blue {{ border-right-color: #38bdf8; }}
             .photo-card.emerald {{ border-right-color: #10b981; }}
             .thumb-wrapper {{
-              width: 210px; height: 210px; border-radius: 28px;
+              width: 200px; height: 200px; border-radius: 28px;
               position: relative; flex-shrink: 0; overflow: hidden;
               border: 3px solid rgba(249,115,22,0.7);
               box-shadow: 0 15px 30px rgba(0,0,0,0.5);
@@ -248,8 +242,8 @@ jobs:
             }}
             .blue .card-tag {{ color: #7dd3fc; background: rgba(56,189,248,0.15); }}
             .emerald .card-tag {{ color: #6ee7b7; background: rgba(16,185,129,0.15); }}
-            .card-title {{ font-size: 42px; font-weight: 900; margin-bottom: 10px; color: #ffffff; line-height: 1.2; }}
-            .card-desc {{ font-size: 28px; font-weight: 700; color: #cbd5e1; font-family: 'Tajawal', sans-serif; line-height: 1.42; }}
+            .card-title {{ font-size: 40px; font-weight: 900; margin-bottom: 10px; color: #ffffff; line-height: 1.2; }}
+            .card-desc {{ font-size: 27px; font-weight: 700; color: #cbd5e1; font-family: 'Tajawal', sans-serif; line-height: 1.42; }}
             #footer {{
               width: 960px; background: linear-gradient(90deg, rgba(15,23,42,0.96), rgba(30,41,59,0.96));
               border: 2px solid rgba(56,189,248,0.4); border-radius: 32px;
@@ -413,14 +407,14 @@ jobs:
               hover_h = math.sin(t * 2.2) * 6.0 if t > 0.8 else 0.0
               place_transformed(
                   frame, img_header,
-                  center_x=W/2, center_y=235 - (1 - p_h) * 90 + hover_h,
+                  center_x=W/2, center_y=220 - (1 - p_h) * 90 + hover_h,
                   scale=0.92 + 0.08 * min(1.0, p_h), alpha=a_h, shimmer_p=(t - 0.6) / 1.1
               )
 
               cards_cfg = [
-                  (img_c1, 1.3, 4.4, 625),
-                  (img_c2, 4.4, 7.5, 955),
-                  (img_c3, 7.5, duration, 1285)
+                  (img_c1, 1.2, 4.0, 580),
+                  (img_c2, 4.0, 6.8, 910),
+                  (img_c3, 6.8, duration, 1240)
               ]
               for idx, (c_img, t_enter, t_spot_end, base_cy) in enumerate(cards_cfg):
                   if t >= t_enter:
@@ -436,7 +430,7 @@ jobs:
                           frame, c_img,
                           center_x=W/2 + slide_x, center_y=base_cy + float_y,
                           scale=target_scale * min(1.05, max(0.8, p_in)),
-                          alpha=a_in if is_spotlight or t > 8.5 else a_in * 0.88,
+                          alpha=a_in if is_spotlight or t > 8.0 else a_in * 0.88,
                           shimmer_p=sh_prog
                       )
 
@@ -450,19 +444,19 @@ jobs:
               start_x = (W - (num_bars * (bar_w + gap))) // 2
               for b in range(num_bars):
                   wave_mod = 0.30 + 0.70 * abs(math.sin(t * 10.0 + b * 0.4))
-                  bh = max(12, min(95, int(12 + 85 * energy * wave_mod)))
+                  bh = max(12, min(90, int(12 + 80 * energy * wave_mod)))
                   bx = start_x + b * (bar_w + gap)
-                  by_bar = 1555 - bh // 2
+                  by_bar = 1525 - bh // 2
                   col = (249, 115, 22, 235) if b % 2 == 0 else (56, 189, 248, 235)
                   dr.rounded_rectangle([bx, by_bar, bx + bar_w, by_bar + bh], radius=7, fill=col)
 
               p_f = ease_out_back((t - 0.6) / 0.6)
               a_f = float(np.clip((t - 0.6) / 0.4, 0, 1))
-              place_transformed(frame, img_footer, W/2, 1715 + (1 - p_f) * 60, scale=1.0, alpha=a_f)
+              place_transformed(frame, img_footer, W/2, 1690 + (1 - p_f) * 60, scale=1.0, alpha=a_f)
 
               prog_w = int(960 * (i / max(1, total_frames - 1)))
-              dr.rounded_rectangle([60, 1835, 1020, 1849], radius=7, fill=(255, 255, 255, 45))
-              dr.rounded_rectangle([60, 1835, 60 + max(16, prog_w), 1849], radius=7, fill=(249, 115, 22, 255))
+              dr.rounded_rectangle([60, 1825, 1020, 1839], radius=7, fill=(255, 255, 255, 45))
+              dr.rounded_rectangle([60, 1825, 60 + max(16, prog_w), 1839], radius=7, fill=(249, 115, 22, 255))
 
               try:
                   ffmpeg_proc.stdin.write(frame.tobytes())
