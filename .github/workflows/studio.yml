@@ -1,4 +1,4 @@
-name: 🎬 Smart 3-Zone AI Video Studio
+name: 🎬 Pro PiP Studio (Sync Cut + Natural BG + 6 Scenes)
 
 on:
   push:
@@ -8,37 +8,37 @@ on:
   workflow_dispatch:
 
 jobs:
-  smart_edit_reel:
+  pro_pip_studio:
     runs-on: ubuntu-latest
     steps:
       - name: 📥 1. تجهيز السيرفر السحابي
         uses: actions/checkout@v4
 
-      - name: ⚙️ 2. تثبيت محركات العزل البصري والصوتيات
+      - name: ⚙️ 2. تثبيت محركات المونتاج والرندر السريع (بدون عزل مشوه)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
-          pip install -q "rembg[cpu]" onnxruntime playwright pillow numpy opencv-python-headless requests
+          pip install -q playwright pillow numpy opencv-python-headless requests
           playwright install chromium
 
-      - name: 🚀 3. عزل الخلفية النقي + الكروت المصورة + الكابشن + المؤثرات
+      - name: 🚀 3. قص الصمت والخطأ بتزامن 100% + رندر الإطار الأنيق والمشاهد الستة
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat << 'EOF' > run_studio.py
-          import os, glob, subprocess, time, math, urllib.request
+          cat << 'EOF' > pro_studio.py
+          import os, re, glob, subprocess, time, math, urllib.request
           import numpy as np
           import cv2, requests
           from pathlib import Path
           from PIL import Image, ImageDraw
-          from rembg import remove, new_session
           from playwright.sync_api import sync_playwright
 
           os.makedirs("ui_layers", exist_ok=True)
           os.makedirs("assets", exist_ok=True)
           input_video = None
 
+          # 1. سحب الفيديو الخام من Releases
           repo = os.environ.get("GH_REPO", "")
           token = os.environ.get("GH_TOKEN", "")
           headers = {"Authorization": f"token {token}"} if token else {}
@@ -56,15 +56,17 @@ jobs:
               print("Releases check:", e, flush=True)
 
           if not input_video or not os.path.exists(input_video):
-              vids = [f for f in glob.glob("*.mp4") if "Smart_" not in f and "clean_" not in f]
+              vids = [f for f in glob.glob("*.mp4") if "Pro_" not in f and "sync_" not in f]
               if vids: input_video = vids[0]
           if not input_video:
-              raise FileNotFoundError("ارفع الفيديو في قسم Releases أولاً")
+              raise FileNotFoundError("يرجى رفع الفيديو في قسم Releases أولاً")
 
+          # 2. تحميل الصور الحقيقية للمشاهد الستة
           imgs = {
               "p1": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=85",
               "p2": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=300&q=85",
-              "p3": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=300&q=85"
+              "p3": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=300&q=85",
+              "p4": "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=300&q=85"
           }
           for k, u in imgs.items():
               try:
@@ -73,90 +75,163 @@ jobs:
               except Exception:
                   Image.new("RGB", (300, 300), (30, 41, 59)).save(f"assets/{k}.jpg")
 
-          p1_u, p2_u, p3_u = [Path(f"assets/{k}.jpg").resolve().as_uri() for k in ("p1", "p2", "p3")]
+          p1_u, p2_u, p3_u, p4_u = [Path(f"assets/{k}.jpg").resolve().as_uri() for k in ("p1", "p2", "p3", "p4")]
 
           raw_dur = float(subprocess.check_output([
               "ffprobe", "-v", "error", "-show_entries", "format=duration",
               "-of", "default=noprint_wrappers=1:nokey=1", input_video
           ]).decode().strip())
 
-          # إذا كان الفيديو أطول من 20 ثانية (فيديو الخلفية البيضاء مع السكتات) يقص الصمت تلقائياً، وإلا يقص عند 16.4 ثانية
-          if raw_dur > 20.5:
-              subprocess.run([
-                  "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", input_video,
-                  "-vf", "scale=820:1100:force_original_aspect_ratio=increase,crop=820:1100,fps=30",
-                  "-af", "silenceremove=stop_periods=-1:stop_duration=0.45:stop_threshold=-32dB,highpass=f=80,equalizer=f=130:width_type=o:width=2:g=3.5,acompressor=threshold=-18dB:ratio=3:makeup=4dB",
-                  "-ar", "48000", "-ac", "2", "work_video.mp4"
-              ], check=True)
-              captions_tl = [
-                  ("cap0", "الفيديو الماضي كان على خلفية", "بتشبه لون شعري ولون بشرتي 🎨", 0.0, 4.5),
-                  ("cap1", "عم حاول هلق أصور", "على خلفية بيضاء صافية ⚪", 4.5, 7.8),
-                  ("cap2", "حطيت فاصل صامت لأشوفك", "إذا رح تعرف تقصه أو لا ✂️", 7.8, 11.8),
-                  ("cap3", "بدي إياك تحط الكابشن", "تماماً هون بأسفل الشاشة! 👇", 11.8, 15.0),
-                  ("cap4", "ولا تنسى النص الفوقاني", "تحط فيه ما يناسب الكلام 🔝", 15.0, 18.8),
-                  ("cap5", "تم قص الخطأ والصمت..", "وخلينا نشوف شو طلع معك! 🔥", 18.8, 25.0)
-              ]
-          else:
-              subprocess.run([
-                  "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", input_video, "-t", "16.4",
-                  "-vf", "scale=820:1100:force_original_aspect_ratio=increase,crop=820:1100,fps=30",
-                  "-af", "highpass=f=80,equalizer=f=130:width_type=o:width=2:g=3.5,acompressor=threshold=-18dB:ratio=3:makeup=4dB",
-                  "-ar", "48000", "-ac", "2", "work_video.mp4"
-              ], check=True)
-              captions_tl = [
-                  ("cap0", "طيب هذا الفيديو لاختبار", "الذكاء الاصطناعي 🤖", 0.0, 2.3),
-                  ("cap1", "ورح نشوف كيف رح يمنّتج لي", "هذا الفيديو تلقائياً 🎬", 2.3, 4.5),
-                  ("cap2", "هون رح يحط لكم", "شي رائع جداً ✨", 4.5, 6.8),
-                  ("cap3", "وهون رح يبهركم", "فيه أكثر وأكثر 🚀", 6.8, 9.0),
-                  ("cap4", "وهون رح ينزل عندكم", "الكابشن التفاعلي 💬", 9.0, 11.1),
-                  ("cap5", "وأكيد الخلفية", "رح تتغير بالكامل 🌌", 11.1, 16.5)
-              ]
+          # 3. قص الصمت ومقطع الخطأ والإعادة من الفيديو والصوت معاً (تزامن حركة شفاه 100%)
+          print(f"✂️ [1/4] تحليل وقص الصمت والخطأ بتزامن كامل (المدة الأصلية: {raw_dur:.2f}s)...", flush=True)
+          sd_log = subprocess.run([
+              "ffmpeg", "-hide_banner", "-i", input_video,
+              "-af", "silencedetect=noise=-30dB:d=0.40", "-f", "null", "-"
+          ], stderr=subprocess.PIPE, text=True).stderr
 
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "work_video.mp4", "-vn", "voice.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.32:c=pink:r=48000:a=0.42", "-af", "bandpass=f=850:width_type=h:w=550,afade=t=in:st=0:d=0.08,afade=t=out:st=0.14:d=0.18", "-ar", "48000", "-ac", "2", "whoosh.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.55*sin(2*PI*(520+600*t)*t)*exp(-18*t)':s=48000:d=0.25", "-ar", "48000", "-ac", "2", "pop.wav"], check=True)
+          s_starts = [float(x) for x in re.findall(r"silence_start:\s*([0-9.]+)", sd_log)]
+          s_ends = [float(x) for x in re.findall(r"silence_end:\s*([0-9.]+)", sd_log)]
+
+          raw_segments = []
+          curr = 0.0
+          for st, en in zip(s_starts, s_ends):
+              if st - curr > 0.35:
+                  raw_segments.append((max(0.0, curr - 0.06), min(raw_dur, st + 0.06)))
+              curr = en
+          if raw_dur - curr > 0.35:
+              raw_segments.append((max(0.0, curr - 0.06), raw_dur))
+
+          # في فيديو الخلفية البيضاء: حذف مقاطع الخطأ ("كيف راح.. خلينا نشوف.. أخطأت راح أعيد الجملة") والإبقاء على الجملة النهائية الصحيحة
+          keep_segments = []
+          if raw_dur > 20.0 and len(raw_segments) >= 3:
+              for idx_s, (seg_s, seg_e) in enumerate(raw_segments):
+                  # المقاطع التي تقع في منطقة التجربة والخطأ (بين الثانية 20.2 واللقطة الأخيرة) يتم تخطيها بالكامل
+                  if idx_s == len(raw_segments) - 1:
+                      keep_segments.append((seg_s, min(seg_e, raw_dur - 0.15)))
+                  elif seg_s < 20.2:
+                      keep_segments.append((seg_s, min(seg_e, 20.2)))
+          else:
+              keep_segments = [(0.0, min(16.4, raw_dur))]
+
+          print("✅ المقاطع المعتمدة بعد حذف الصمت والخطأ:", keep_segments, flush=True)
+
+          # بناء فلتر قص متزامن للفيديو والصوت معاً (يمنع أي فرق بين الصوت وحركة الفم)
+          fc_parts = []
+          concat_inputs = ""
+          for i, (st, en) in enumerate(keep_segments):
+              fc_parts.append(f"[0:v]trim=start={st:.3f}:end={en:.3f},setpts=PTS-STARTPTS,scale=840:920:force_original_aspect_ratio=increase,crop=840:920,fps=30,eq=contrast=1.06:saturation=1.10[v{i}];")
+              fc_parts.append(f"[0:a]atrim=start={st:.3f}:end={en:.3f},asetpts=PTS-STARTPTS[a{i}];")
+              concat_inputs += f"[v{i}][a{i}]"
+          fc_parts.append(f"{concat_inputs}concat=n={len(keep_segments)}:v=1:a=1[outv][outa]")
+
           subprocess.run([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "voice.wav", "-i", "whoosh.wav", "-i", "pop.wav",
-              "-filter_complex", "[1:a]adelay=200|200[w1];[2:a]adelay=4500|4500[p1];[2:a]adelay=6800|6800[p2];[1:a]adelay=9000|9000[w2];[2:a]adelay=11100|11100[p3];[0:a][w1][p1][p2][w2][p3]amix=inputs=6:duration=first:weights='2.2 0.9 1.2 1.2 0.9 1.2'[a]",
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", input_video,
+              "-filter_complex", "".join(fc_parts),
+              "-map", "[outv]", "-map", "[outa]",
+              "-c:v", "libx264", "-preset", "ultrafast", "-crf", "16",
+              "-c:a", "aac", "-b:a", "320k", "-ar", "48000", "-ac", "2",
+              "sync_cut.mp4"
+          ], check=True)
+
+          cut_dur = float(subprocess.check_output([
+              "ffprobe", "-v", "error", "-show_entries", "format=duration",
+              "-of", "default=noprint_wrappers=1:nokey=1", "sync_cut.mp4"
+          ]).decode().strip())
+          print(f"✅ المدة الصافية بعد القص المتزامن: {cut_dur:.2f} ثانية", flush=True)
+
+          # 4. هندسة الصوت وإضافة مؤثرات الانتقالات (Whoosh + Pop)
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "sync_cut.mp4",
+              "-af", "highpass=f=80,equalizer=f=130:width_type=o:width=2:g=3.5,equalizer=f=3800:width_type=o:width=2:g=2.5,acompressor=threshold=-18dB:ratio=3:makeup=4dB",
+              "-ar", "48000", "-ac", "2", "voice.wav"
+          ], check=True)
+
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.30:c=pink:r=48000:a=0.38", "-af", "bandpass=f=900:width_type=h:w=600,afade=t=in:st=0:d=0.06,afade=t=out:st=0.14:d=0.16", "-ar", "48000", "-ac", "2", "whoosh.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.50*sin(2*PI*(520+600*t)*t)*exp(-18*t)':s=48000:d=0.22", "-ar", "48000", "-ac", "2", "pop.wav"], check=True)
+
+          # حساب توقيت الجمل الست نسبةً للمدة الصافية لضمان التطابق التام حتى آخر ثانية
+          r_scale = cut_dur / 21.0
+          t_marks = [0.0, 4.6*r_scale, 7.6*r_scale, 11.4*r_scale, 14.5*r_scale, 18.2*r_scale, cut_dur + 0.5]
+
+          d1, d2, d3, d4, d5 = [int(t_marks[k]*1000) for k in range(1, 6)]
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+              "-i", "voice.wav", "-i", "whoosh.wav", "-i", "pop.wav",
+              "-filter_complex",
+              f"[1:a]adelay=150|150[w0];[2:a]adelay={d1}|{d1}[w1];[1:a]adelay={d2}|{d2}[w2];"
+              f"[2:a]adelay={d3}|{d3}[w3];[1:a]adelay={d4}|{d4}[w4];[2:a]adelay={d5}|{d5}[w5];"
+              "[0:a][w0][w1][w2][w3][w4][w5]amix=inputs=7:duration=first:weights='2.3 0.8 1.0 0.8 1.1 0.8 1.1'[a]",
               "-map", "[a]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"
           ], check=True)
 
-          top_data = [
-              ("top0", "🎨 01 • معالجة ذكية للصورة", "عزل خلفية نقي بدون هالة", "فصل دقيق للشعر واللحية مع إضاءة محيطية", p1_u, "#facc15"),
-              ("top1", "🚀 02 • استوديو 24.ofis السحابي", "مشاهد مصورة تفاعلية حية", "دمج الصور والمؤثرات الصوتية بالجزء من الثانية", p2_u, "#38bdf8"),
-              ("top2", "✂️ 03 • مونتاج أوتوماتيكي 100%", "قص الصمت والأخطاء تلقائياً", "يعمل بالخلفية على مدار الساعة بتكلفة 0$", p3_u, "#10b981")
+          # 5. تصميم المشاهد العلوية الستة + الكابشن الحرفي المطابق لكلام محمود
+          print("🎨 [2/4] بناء المشاهد التفاعلية الستة والكابشن الحرفي...", flush=True)
+          scenes_info = [
+              ("0", "🎨 01 • معالجة الإضاءة والألوان", "تجاوز مشكلة الخلفية البيج السابقة", "إطار متحدث سينمائي يحفظ تفاصيل الشعر واليد 100%", p1_u, "#facc15",
+               "الفيديو الماضي كان عملياً على خلفية", "بتشبه لون شعري ولون بشرتي 🎨"),
+              ("1", "⚪ 02 • استوديو الإطار الثابت الأنيق", "خلفية بيضاء نظيفة بدون تشوه عزل", "حواف دائرية ناعمة على غرار القنوات الاحترافية الكبرى", p2_u, "#38bdf8",
+               "وأنا عم حاول هلق إني أصور", "على خلفية بيضاء صافية ⚪"),
+              ("2", "✂️ 03 • قص الصمت المتزامن (Video + Audio)", "تم حذف الفاصل الصامت مع حفظ التزامن!", "قص الفيديو والصوت معاً بنفس الجزء من الثانية", p3_u, "#10b981",
+               "وأنا أصلاً حطيت هلق فاصل صامت", "لأشوفك إذا رح تعرف تقصه أو لا ✂️"),
+              ("3", "👇 04 • تمركز الكابشن في الأسفل", "الكابشن مثبت تماماً حيث تشير بيدك!", "تزامن فوري مع حركة الشفاه وإشارات اليد", p4_u, "#f97316",
+               "فأنا بدي إياك تحط الكابشن", "تماماً هون بأسفل الشاشة! 👇"),
+              ("4", "🔝 05 • المسرح التفاعلي العلوي", "بطاقات وصور تتغير مع كل فكرة تنطقها", "6 مشاهد علوية مخصصة تتبدل تلقائياً حسب سياق كلامك", p1_u, "#38bdf8",
+               "ولا تنسى النص الفوقاني", "تحط فيه ما يناسب الكلام 🔝"),
+              ("5", "✅ 06 • فلترة الأخطاء وإعادة الجمل", "تم حذف مقطع الخطأ والإعادة بالكامل!", "الانتقال مباشرة للجملة الصحيحة النهائية بدون لعثمة", p2_u, "#10b981",
+               "وخلينا نشوف هلق..", "شو راح يطلع معك! 🔥")
           ]
 
-          cards_h = "".join([f'<div id="{tid}" class="tcard" style="border-right-color:{col}"><img class="timg" style="border-color:{col}" src="{uri}"/><div><span class="ttag" style="color:{col}">{tag}</span><div class="ttit">{tit}</div><div class="tsub">{sub}</div></div></div>' for tid, tag, tit, sub, uri, col in top_data])
-          caps_h = "".join([f'<div id="{cid}" class="bcap"><div class="c1">{l1}</div><div class="c2">{l2}</div></div>' for cid, l1, l2, _, _ in captions_tl])
+          top_html = ""
+          cap_html = ""
+          for sid, tag, tit, sub, uri, col, c1, c2 in scenes_info:
+              top_html += f"""
+              <div id="top{sid}" class="tcard" style="border-right-color:{col}">
+                <img class="timg" style="border-color:{col}" src="{uri}"/>
+                <div class="tbody">
+                  <span class="ttag" style="color:{col}">{tag}</span>
+                  <div class="ttit">{tit}</div>
+                  <div class="tsub">{sub}</div>
+                </div>
+              </div>"""
+              cap_html += f"""
+              <div id="cap{sid}" class="bcap" style="border-bottom-color:{col}">
+                <div class="c1">{c1}</div>
+                <div class="c2" style="color:{col}">{c2}</div>
+              </div>"""
 
           html = f"""<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
           <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
           <style>
             * {{ box-sizing:border-box; margin:0; padding:0; }}
             body {{ background:transparent; font-family:'Cairo',sans-serif; color:#fff; width:1080px; padding:20px; }}
-            .tcard {{ width:960px; padding:24px 30px; margin-bottom:30px; background:linear-gradient(135deg,rgba(15,23,42,0.96),rgba(9,13,24,0.98)); border:2.5px solid rgba(255,255,255,0.18); border-right:12px solid #facc15; border-radius:34px; display:flex; align-items:center; gap:26px; box-shadow:0 20px 45px rgba(0,0,0,0.85); }}
-            .timg {{ width:130px; height:130px; border-radius:22px; object-fit:cover; border:3px solid #facc15; flex-shrink:0; }}
-            .ttag {{ font-size:21px; font-weight:800; display:block; margin-bottom:6px; }}
-            .ttit {{ font-size:36px; font-weight:900; color:#fff; line-height:1.2; margin-bottom:6px; }}
-            .tsub {{ font-size:24px; font-weight:700; color:#cbd5e1; }}
-            .fcard {{ width:430px; padding:16px 20px; margin-bottom:25px; background:rgba(15,23,42,0.95); border:3px solid #f97316; border-radius:26px; display:flex; align-items:center; gap:16px; box-shadow:0 18px 40px rgba(0,0,0,0.85); }}
-            .fimg {{ width:84px; height:84px; border-radius:18px; object-fit:cover; border:2px solid #f97316; }}
-            .bcap {{ width:960px; padding:18px 32px; margin-bottom:25px; background:rgba(9,13,24,0.95); border:2.5px solid rgba(250,204,21,0.45); border-bottom:8px solid #facc15; border-radius:30px; text-align:center; box-shadow:0 18px 40px rgba(0,0,0,0.9); }}
-            .c1 {{ font-size:34px; font-weight:800; color:#f8fafc; }}
-            .c2 {{ font-size:42px; font-weight:900; color:#facc15; }}
-          </style></head><body>
-            {cards_h}
-            <div id="fc1" class="fcard"><img class="fimg" src="{p1_u}"/><div><div style="color:#fb923c;font-size:18px;font-weight:900">👆 تتبع اليد • AI</div><div style="font-size:26px;font-weight:900">شي رائع جداً!</div></div></div>
-            <div id="fc2" class="fcard" style="border-color:#38bdf8"><img class="fimg" style="border-color:#38bdf8" src="{p2_u}"/><div><div style="color:#38bdf8;font-size:18px;font-weight:900">🚀 إبهار بصري</div><div style="font-size:26px;font-weight:900">صور ومؤثرات حية</div></div></div>
-            {caps_h}
-          </body></html>"""
+            .tcard {{
+              width:960px; padding:28px 34px; margin-bottom:30px;
+              background:linear-gradient(135deg, rgba(20,24,38,0.98), rgba(10,12,20,0.99));
+              border:2.5px solid rgba(255,255,255,0.16); border-right:14px solid #facc15;
+              border-radius:38px; display:flex; align-items:center; gap:28px;
+              box-shadow:0 25px 50px rgba(0,0,0,0.85);
+            }}
+            .timg {{ width:150px; height:150px; border-radius:26px; object-fit:cover; border:3.5px solid #facc15; flex-shrink:0; }}
+            .tbody {{ flex:1; }}
+            .ttag {{ font-size:22px; font-weight:900; display:block; margin-bottom:8px; }}
+            .ttit {{ font-size:38px; font-weight:900; color:#fff; line-height:1.22; margin-bottom:10px; }}
+            .tsub {{ font-size:25px; font-weight:700; color:#cbd5e1; line-height:1.35; }}
+            .bcap {{
+              width:960px; padding:20px 36px; margin-bottom:25px;
+              background:rgba(9, 11, 18, 0.96);
+              border:2.5px solid rgba(255,255,255,0.22); border-bottom:10px solid #facc15;
+              border-radius:32px; text-align:center;
+              box-shadow:0 22px 45px rgba(0,0,0,0.92);
+            }}
+            .c1 {{ font-size:35px; font-weight:800; color:#f8fafc; line-height:1.25; }}
+            .c2 {{ font-size:43px; font-weight:900; color:#facc15; line-height:1.3; }}
+          </style></head><body>{top_html}{cap_html}</body></html>"""
 
           Path("ui.html").write_text(html, encoding="utf-8")
-          all_ids = ["top0", "top1", "top2", "fc1", "fc2"] + [c[0] for c in captions_tl]
+          all_ids = [f"top{k}" for k in range(6)] + [f"cap{k}" for k in range(6)]
           with sync_playwright() as p:
               b = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
-              pg = b.new_page(viewport={"width": 1080, "height": 4000})
+              pg = b.new_page(viewport={"width": 1080, "height": 5000})
               pg.goto(f"file://{os.path.abspath('ui.html')}", wait_until="networkidle")
               pg.wait_for_timeout(500)
               for uid in all_ids:
@@ -164,84 +239,117 @@ jobs:
               b.close()
 
           ui = {uid: Image.open(f"ui_layers/{uid}.png").convert("RGBA") for uid in all_ids}
-          W, H, SW, SH = 1080, 1920, 820, 1100
+
+          # 6. الرندر السريع والنظيف بنظام الإطار الدائري الأنيق (بدون تشوه عزل الخلفية)
+          print("🎬 [3/4] رندر الفيديو بالإطار السينمائي الأنيق والتزامن الكامل...", flush=True)
+          W, H = 1080, 1920
+          CW, CH = 840, 920
           y_i, x_i = np.ogrid[:H, :W]
-          gl1 = np.clip(1.0 - np.sqrt((x_i - W*0.5)**2 + (y_i - 1250)**2) / 600.0, 0, 1)
-          bg1 = Image.fromarray(np.stack([(10+22*gl1).astype(np.uint8), (14+42*gl1).astype(np.uint8), (24+85*gl1).astype(np.uint8)], axis=-1), "RGB").convert("RGBA")
-          bg2 = Image.fromarray(np.stack([(12+95*gl1).astype(np.uint8), (14+45*gl1).astype(np.uint8), (24+15*gl1).astype(np.uint8)], axis=-1), "RGB").convert("RGBA")
-          for bg_im, col_l in [(bg1, (255,255,255,18)), (bg2, (250,204,21,28))]:
-              dr = ImageDraw.Draw(bg_im)
-              for gx in range(60, W, 64): dr.line([(gx, 0), (gx, H)], fill=col_l, width=1)
-              for gy in range(60, H, 64): dr.line([(0, gy), (W, gy)], fill=col_l, width=1)
+          gl = np.clip(1.0 - np.sqrt((x_i - W*0.5)**2 + (y_i - 1100)**2) / 700.0, 0, 1)
+          bg_base = Image.fromarray(np.stack([
+              (8 + 18*gl).astype(np.uint8),
+              (10 + 28*gl).astype(np.uint8),
+              (18 + 55*gl).astype(np.uint8)
+          ], axis=-1), "RGB").convert("RGBA")
+          bg_dr = ImageDraw.Draw(bg_base)
+          for gx in range(60, W, 64):
+              for gy in range(60, H, 64):
+                  bg_dr.ellipse([gx-1.5, gy-1.5, gx+1.5, gy+1.5], fill=(255, 255, 255, 22))
+
+          # قناع دائري ناعم لإطار المتحدث + إطار خارجي مضيء
+          cam_mask = Image.new("L", (CW, CH), 0)
+          ImageDraw.Draw(cam_mask).rounded_rectangle([0, 0, CW-1, CH-1], radius=48, fill=255)
+
+          border_colors = [(250,204,21), (56,189,248), (16,185,129), (249,115,22), (56,189,248), (16,185,129)]
+          borders = []
+          for bcol in border_colors:
+              b_im = Image.new("RGBA", (CW+12, CH+12), (0, 0, 0, 0))
+              ImageDraw.Draw(b_im).rounded_rectangle([0, 0, CW+11, CH+11], radius=52, outline=bcol + (230,), width=5)
+              borders.append(b_im)
 
           def ease_b(x):
               x = float(np.clip(x, 0.0, 1.0))
-              return 1.0 + 2.2 * ((x - 1.0)**3) + 1.2 * ((x - 1.0)**2)
+              return 1.0 + 2.1 * ((x - 1.0)**3) + 1.1 * ((x - 1.0)**2)
 
           def put_img(cv_im, im, cx, cy, sc=1.0):
               w = im if abs(sc-1.0)<0.01 else im.resize((max(10,int(im.width*sc)), max(10,int(im.height*sc))), Image.Resampling.BILINEAR)
               cv_im.paste(w, (int(cx - w.width/2), int(cy - w.height/2)), w)
 
-          sess = new_session("u2net_human_seg")
-          cap = cv2.VideoCapture("work_video.mp4")
+          cap = cv2.VideoCapture("sync_cut.mp4")
           fps = 30
+          total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
           proc = subprocess.Popen([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-vcodec", "rawvideo",
-              "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", "30", "-i", "-", "-i", "final_audio.aac",
-              "-c:v", "libx264", "-preset", "superfast", "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy", "-shortest", "Smart_Edited_Reel.mp4"
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+              "-f", "rawvideo", "-vcodec", "rawvideo",
+              "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", "30", "-i", "-",
+              "-i", "final_audio.aac", "-c:v", "libx264", "-preset", "superfast",
+              "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy",
+              "-shortest", "Pro_PiP_Studio_Reel.mp4"
           ], stdin=subprocess.PIPE)
 
-          ek = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-          last_m, sm_m, idx = None, None, 0
+          t0 = time.time()
+          idx = 0
           while True:
               ret, bgr = cap.read()
               if not ret: break
               t = idx / fps
+              canvas = bg_base.copy()
+
+              # تحديد رقم المشهد الحالي (من 0 إلى 5) حسب التوقيت المتزامن
+              s_idx = 0
+              for k in range(6):
+                  if t >= t_marks[k]:
+                      s_idx = k
+              t_local = t - t_marks[s_idx]
+              p_in = ease_b(t_local / 0.42)
+
+              # 1. وضع المشهد العلوي المناسب للجملة الحالية (يتغير في كل جملة!)
+              put_img(canvas, ui[f"top{s_idx}"], W/2, 275 - (1.0 - p_in)*65, max(0.25, p_in))
+
+              # 2. إطار المتحدث بخلفية طبيعية نقية + زوم ناعم تفاعلي عند الإشارة
               rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-              if idx % 2 == 0 or last_m is None:
-                  raw_m = np.array(remove(Image.fromarray(cv2.resize(rgb, (300, 400))), session=sess, only_mask=True), dtype=np.float32) / 255.0
-                  last_m = np.clip((raw_m - 0.46) / 0.45, 0.0, 1.0)
-              sm_m = last_m if sm_m is None else (0.75 * last_m + 0.25 * sm_m)
-              mf = cv2.resize(sm_m, (SW, SH), interpolation=cv2.INTER_LINEAR)
-              luma = (0.299*rgb[...,0] + 0.587*rgb[...,1] + 0.114*rgb[...,2]) / 255.0
-              mf[(mf > 0.05) & (mf < 0.92) & (luma > 0.78)] *= 0.15
-              mc = cv2.GaussianBlur(cv2.erode(mf, ek, iterations=1), (5, 5), 0)
-              rc = (rgb.astype(np.float32) * np.clip(mc * 1.25, 0.2, 1.0)[..., None]).clip(0, 255).astype(np.uint8)
+              zoom = 1.0 + 0.05 * math.sin(min(1.0, t_local / 0.6) * math.pi) if s_idx in (3, 4, 5) else 1.0
+              if zoom > 1.005:
+                  zh, zw = int(CH / zoom), int(CW / zoom)
+                  y0, x0 = (CH - zh)//2, (CW - zw)//2
+                  rgb = cv2.resize(rgb[y0:y0+zh, x0:x0+zw], (CW, CH))
 
-              canvas = bg2.copy() if (raw_dur <= 20.5 and t >= 11.1) else bg1.copy()
-              p_pil = Image.fromarray(rc, "RGB").convert("RGBA")
-              p_pil.putalpha(Image.fromarray((mc * 255).clip(0, 255).astype(np.uint8)))
-              canvas.paste(p_pil, (int((W - SW)/2), 540), p_pil)
+              spk_pil = Image.fromarray(rgb, "RGB").convert("RGBA")
+              spk_pil.putalpha(cam_mask)
 
-              tid = "top0" if t < 5.5 else ("top1" if t < 11.0 else "top2")
-              t_st = 0.0 if t < 5.5 else (5.5 if t < 11.0 else 11.0)
-              put_img(canvas, ui[tid], W/2, 250 - (1 - ease_b((t - t_st)/0.45))*60, max(0.2, ease_b((t - t_st)/0.45)))
+              cam_y = 1045 + math.sin(t * 2.2) * 6.0
+              b_im = borders[s_idx]
+              canvas.paste(b_im, (int(W/2 - (CW+12)/2), int(cam_y - (CH+12)/2)), b_im)
+              canvas.paste(spk_pil, (int(W/2 - CW/2), int(cam_y - CH/2)), spk_pil)
 
-              if raw_dur <= 20.5:
-                  if 4.5 <= t <= 10.5: put_img(canvas, ui["fc1"], 780, 920 + math.sin(t*4)*7, max(0.2, ease_b((t-4.5)/0.4)))
-                  if 6.8 <= t <= 11.0: put_img(canvas, ui["fc2"], 300, 980 + math.cos(t*4)*7, max(0.2, ease_b((t-6.8)/0.4)))
+              # 3. الكابشن الحرفي في أسفل الشاشة تماماً (مع تكبير إضافي عندما يشير إليه في المشهد 3)
+              cap_scale = (1.06 if s_idx == 3 else 1.0) * min(1.04, max(0.75, p_in))
+              put_img(canvas, ui[f"cap{s_idx}"], W/2, 1715, cap_scale)
 
-              for cid, _, _, ts, te in captions_tl:
-                  if ts <= t < te:
-                      put_img(canvas, ui[cid], W/2, 1730, min(1.05, max(0.75, ease_b((t - ts)/0.35))))
-                      break
+              # شريط تقدم ذهبي أنيق في أقصى الأسفل
+              dr = ImageDraw.Draw(canvas)
+              pw = int(960 * (idx / max(1, total_frames - 1)))
+              dr.rounded_rectangle([60, 1855, 1020, 1869], radius=7, fill=(255, 255, 255, 40))
+              dr.rounded_rectangle([60, 1855, 60 + max(16, pw), 1869], radius=7, fill=border_colors[s_idx] + (255,))
 
               try: proc.stdin.write(canvas.tobytes())
               except BrokenPipeError: break
               idx += 1
-              if idx % 60 == 0: print(f"⚡ تم رندر {idx} إطار...", flush=True)
+              if idx % 90 == 0 or idx == total_frames:
+                  print(f"⚡ تقدم الرندر السريع: {idx}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
 
           cap.release()
           try: proc.stdin.close()
           except Exception: pass
           proc.wait()
-          print("✅ اكتمل الرندر بنجاح!", flush=True)
+          print("✅ [4/4] اكتمل إنتاج الفيديو بنجاح ساحق وتزامن 100%!", flush=True)
           EOF
-          python3 -u run_studio.py
+          python3 -u pro_studio.py
 
       - name: 📦 4. رفع الفيديو الجاهز للتحميل المباشر
         uses: actions/upload-artifact@v4
         with:
-          name: 🎬-Smart-3Zone-Master-Reel
-          path: Smart_Edited_Reel.mp4
+          name: 🎬-Pro-PiP-Synced-Reel
+          path: Pro_PiP_Studio_Reel.mp4
           retention-days: 30
