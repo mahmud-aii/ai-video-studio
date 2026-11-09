@@ -1,4 +1,4 @@
-name: 🚀 TEKVIYO 2026 Kinetic Bento & 3D Camera Studio
+name: 🎬 TEKVIYO 2026 Turkish Wireframe Edition
 
 on:
   push:
@@ -11,25 +11,25 @@ on:
         default: 'Charon'
 
 jobs:
-  render_2026_edition:
+  render_turkish_wireframe:
     runs-on: ubuntu-latest
     steps:
       - name: 📥 1. تجهيز السيرفر السحابي
         uses: actions/checkout@v4
 
-      - name: ⚙️ 2. تثبيت محرك الرندر الحقيقي (Playwright + FFmpeg)
+      - name: ⚙️ 2. تثبيت محركات الرندر والصوتيات
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
           pip install -q playwright edge-tts pillow numpy requests
           playwright install chromium
 
-      - name: 🎬 3. رندر إعلان TEKVIYO 2.0 بمحرك 2026 (3D Camera + Live SVG + Blur Captions)
+      - name: 🚀 3. رندر إعلان TEKVIYO 2.0 بالستايل التركي (Wireframe + Single-Word Pill + Sliding Dock)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           VOICE_PERSONA: ${{ github.event.inputs.voice_name || 'Charon' }}
         run: |
-          cat << 'EOF' > build_2026_studio.py
+          cat << 'EOF' > build_turkish_style.py
           import os, subprocess, time, wave, math, base64, json
           import requests
           from pathlib import Path
@@ -41,28 +41,38 @@ jobs:
           scenes_script = [
               {
                   "id": 1,
+                  "badge": "[ 05 ] // 01 نزيف الإعلانات",
                   "voice": "تَصْرِفُ آلافَ الدُّولَارَاتِ عَلَى الإِعْلَانَات... لَكِنَّ العُمَلَاءَ يَضِيعُونَ فِي زَحْمَةِ رَسَائِلِ الوَاتْسَاب، وَمُوَظَّفُوكَ غَارِقُونَ فِي الإِدْخَالِ اليَدَوِيِّ وَالفَوْضَى؟",
-                  "words": ["تصرف", "آلاف", "الدولارات", "على", "الإعلانات..", "لكن", "العملاء", "يضيعون", "في", "زحمة", "الواتساب", "وموظفوك", "غارقون", "في", "الفوضى؟"]
+                  "words": ["تصرف", "آلاف", "الدولارات", "على", "الإعلانات", "لكن", "العملاء", "يضيعون!", "في", "زحمة", "رسائل", "الواتساب", "وموظفوك", "غارقون", "في", "الإدخال", "اليدوي", "والفوضى؟"],
+                  "highlights": ["آلاف", "الدولارات", "يضيعون!", "الواتساب", "والفوضى؟"]
               },
               {
                   "id": 2,
+                  "badge": "[ 04 ] // 02 عقل الأعمال",
                   "voice": "التَّسْوِيقُ وَحْدَهُ لَمْ يَعُدْ يَكْفِي! فِي تِكْ فِيو، نَحْنُ لَا نُصَمِّمُ لَكَ إِعْلَانَاتٍ فَقَط... نَحْنُ نَبْنِي عَقْلَ أَعْمَالِكَ.",
-                  "words": ["التسويق", "وحده", "لم", "يعد", "يكفي!", "في", "TEKVIYO", "نحن", "لا", "نصمم", "إعلانات", "فقط..", "نحن", "نبني", "عقل", "أعمالك."]
+                  "words": ["التسويق", "وحده", "لم", "يعد", "يكفي!", "في", "TEKVIYO", "نحن", "لا", "نصمم", "إعلانات", "فقط..", "نحن", "نبني", "(عقل)", "أعمالك!"],
+                  "highlights": ["يكفي!", "TEKVIYO", "نبني", "(عقل)", "أعمالك!"]
               },
               {
                   "id": 3,
+                  "badge": "[ 03 ] // 03 الربط اللحظي",
                   "voice": "اِكْتَشِفْ قُوَّةَ الرَّبْطِ الذَّكِيّ! إِعْلَانَاتُكَ الآنَ تَصُبُّ مُبَاشَرَةً فِي نِظَامِكَ الإِدَارِيِّ لَحْظِيًّا. العَمِيلُ يَضْغَطُ عَلَى الإِعْلَان، بَيَانَاتُهُ تَظْهَرُ فِي شَاشَةِ سِكْرِتِيرَتِكَ، وَرِسَالَةُ التَّأْكِيدِ تَصِلُهُ أُوتُومَاتِيكِيًّا. لَا تَدَخُّلَ بَشَرِيّ، وَلَا عُمَلَاءَ ضَائِعِين.",
-                  "words": ["اكتشف", "قوة", "الربط", "الذكي!", "العميل", "يضغط", "الإعلان..", "بياناته", "تظهر", "بشاشة", "السكرتيرة", "ورسالة", "التأكيد", "تصله", "لحظياً", "بلا", "عملاء", "ضائعين."]
+                  "words": ["اكتشف", "قوة", "الربط", "الذكي!", "إعلاناتك", "تصب", "مباشرة", "في", "نظامك", "لحظياً!", "العميل", "يضغط", "الإعلان", "بياناته", "بشاشة", "السكرتيرة", "ورسالة", "التأكيد", "تصله", "أوتوماتيكياً", "بلا", "ضياع!"],
+                  "highlights": ["الذكي!", "لحظياً!", "يضغط", "السكرتيرة", "أوتوماتيكياً", "ضياع!"]
               },
               {
                   "id": 4,
+                  "badge": "[ 02 ] // 04 الأنظمة السحابية",
                   "voice": "سَوَاءٌ كُنْتَ عِيَادَةً طِبِّيَّة، مُؤَسَّسَةً عَقَارِيَّة، أَوْ مَرْكَزَ أَعْمَال.. أَنْظِمَتُنَا السَّحَابِيَّةُ المُخَصَّصَةُ تَمْنَحُكَ السَّيْطَرَةَ الكَامِلَةَ عَلَى مُوَظَّفِيك، مَبِيعَاتِك، وَنُمُوِّك، مِنْ أَيِّ مَكَانٍ فِي العَالَم.",
-                  "words": ["سواء", "كنت", "عيادة", "طبية،", "مؤسسة", "عقارية،", "أو", "مركز", "أعمال..", "أنظمتنا", "السحابية", "تمنحك", "السيطرة", "الكاملة", "من", "أي", "مكان", "في", "العالم."]
+                  "words": ["سواء", "كنت", "عيادة", "طبية", "مؤسسة", "عقارية", "أو", "مركز", "أعمال", "أنظمتنا", "السحابية", "تمنحك", "السيطرة", "الكاملة", "على", "مبيعاتك", "ونموك", "من", "أي", "مكان", "في", "العالم!"],
+                  "highlights": ["عيادة", "عقارية", "السحابية", "السيطرة", "ونموك", "العالم!"]
               },
               {
                   "id": 5,
+                  "badge": "[ ∑ ] // 05 الخلاصة والانطلاق",
                   "voice": "لَا تَكْتَفِ بِالوَاجِهَة.. اِبْنِ مَنْظُومَةً مُتَكَامِلَةً لَا تُقْهَر. تَوَاصَلْ مَعَ تِكْ فِيو اليَوْم، وَاحْجِزْ اسْتِشَارَتَكَ التِّقْنِيَّةَ لِنَقْلِ أَعْمَالِكَ لِلْمُسْتَقْبَل.",
-                  "words": ["لا", "تكتفِ", "بالواجهة..", "ابنِ", "منظومة", "متكاملة", "لا", "تُقهر.", "تواصل", "مع", "TEKVIYO", "اليوم", "واحجز", "استشارتك", "للمستقبل."]
+                  "words": ["لا", "تكتفِ", "بالواجهة..", "ابنِ", "منظومة", "متكاملة", "لا", "تُقهر!", "تواصل", "مع", "TEKVIYO", "اليوم", "واحجز", "استشارتك", "التقنية", "للمستقبل!"],
+                  "highlights": ["منظومة", "تُقهر!", "TEKVIYO", "واحجز", "للمستقبل!"]
               }
           ]
 
@@ -99,22 +109,21 @@ jobs:
                       except Exception:
                           pass
               if not used_gem:
-                  subprocess.run(["python3", "-m", "edge_tts", "--voice", "ar-SA-HamedNeural", "--rate=+2%", "--pitch=+0Hz", "--text", pure_text_ar, "--write-media", f"audio/raw_{idx}.mp3"], check=True)
+                  subprocess.run(["python3", "-m", "edge_tts", "--voice", "ar-SA-HamedNeural", "--rate=+3%", "--pitch=+0Hz", "--text", pure_text_ar, "--write-media", f"audio/raw_{idx}.mp3"], check=True)
                   subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", f"audio/raw_{idx}.mp3", f"audio/raw_{idx}.wav"], check=True)
 
               subprocess.run([
                   "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", f"audio/raw_{idx}.wav",
-                  "-af", "silenceremove=start_periods=1:start_silence=0.05:start_threshold=-38dB,highpass=f=75,equalizer=f=120:width_type=o:width=2:g=3.5,equalizer=f=3800:width_type=o:width=2:g=2.5,acompressor=threshold=-16dB:ratio=2.5:makeup=3dB,apad=pad_dur=0.40",
+                  "-af", "silenceremove=start_periods=1:start_silence=0.04:start_threshold=-38dB,highpass=f=75,equalizer=f=120:width_type=o:width=2:g=3.5,equalizer=f=3800:width_type=o:width=2:g=2.5,acompressor=threshold=-16dB:ratio=2.5:makeup=3dB,apad=pad_dur=0.35",
                   "-ar", "48000", "-ac", "2", out_wav
               ], check=True)
 
-          print("🔊 [1/4] توليد التعليق الصوتي وهندسة المؤثرات الصوتية...", flush=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.28:c=pink:r=48000:a=0.42", "-af", "bandpass=f=900:width_type=h:w=600,afade=t=in:st=0:d=0.05,afade=t=out:st=0.12:d=0.16", "-ar", "48000", "-ac", "2", "audio/whoosh.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.65*sin(2*PI*1400*t)*exp(-45*t)+0.40*sin(2*PI*2800*t)*exp(-60*t)':s=48000:d=0.12", "-ar", "48000", "-ac", "2", "audio/click.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.50*sin(2*PI*880*t)*exp(-8*t)+0.40*sin(2*PI*1320*t)*exp(-6*t)':s=48000:d=0.55", "-ar", "48000", "-ac", "2", "audio/ping.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.42*sin(2*PI*(320+900*t)*t)*exp(-5*t)':s=48000:d=0.45", "-ar", "48000", "-ac", "2", "audio/zap.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.35*sin(2*PI*780*t)*(1+sin(2*PI*14*t))/2*exp(-2.2*t)':s=48000:d=0.90", "-ar", "48000", "-ac", "2", "audio/ring.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.55*sin(2*PI*(150-80*t)*t)*exp(-3.5*t)+0.30*sin(2*PI*528*t)*exp(-4*t)':s=48000:d=0.80", "-ar", "48000", "-ac", "2", "audio/shift.wav"], check=True)
+          print("🔊 [1/4] توليد التعليق الصوتي ومؤثرات الـ Micro-UI (Pop, Click, Stamp, Whoosh)...", flush=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.24:c=pink:r=48000:a=0.40", "-af", "bandpass=f=950:width_type=h:w=650,afade=t=in:st=0:d=0.04,afade=t=out:st=0.10:d=0.14", "-ar", "48000", "-ac", "2", "audio/whoosh.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.65*sin(2*PI*1500*t)*exp(-48*t)+0.40*sin(2*PI*3000*t)*exp(-65*t)':s=48000:d=0.10", "-ar", "48000", "-ac", "2", "audio/click.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.55*sin(2*PI*(500+650*t)*t)*exp(-20*t)':s=48000:d=0.20", "-ar", "48000", "-ac", "2", "audio/pop.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.60*sin(2*PI*(150-85*t)*t)*exp(-10*t)+0.25*sin(2*PI*720*t)*exp(-22*t)':s=48000:d=0.35", "-ar", "48000", "-ac", "2", "audio/stamp.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.48*sin(2*PI*880*t)*exp(-8*t)+0.38*sin(2*PI*1320*t)*exp(-6*t)':s=48000:d=0.50", "-ar", "48000", "-ac", "2", "audio/ping.wav"], check=True)
 
           scene_durations = []
           for sc in scenes_script:
@@ -126,547 +135,542 @@ jobs:
               scene_durations.append(dur)
 
               s_out = f"audio/scene_{sid}_mix.wav"
-              if sid == 1:
-                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/ring.wav", "-i", "audio/whoosh.wav", "-filter_complex", "[1:a]adelay=500|500[r1];[2:a]adelay=1600|1600[w1];[1:a]adelay=3400|3400[r2];[0:a][r1][w1][r2]amix=inputs=4:duration=first:weights='2.3 0.75 0.9 0.75'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
-              elif sid == 2:
-                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/shift.wav", "-i", "audio/ping.wav", "-filter_complex", "[1:a]adelay=50|50[sh];[2:a]adelay=2000|2000[pg];[0:a][sh][pg]amix=inputs=3:duration=first:weights='2.3 1.1 0.95'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
-              elif sid == 3:
-                  t_click, t_zap, t_ping1, t_ping2 = int(dur*0.33*1000), int(dur*0.37*1000), int(dur*0.50*1000), int(dur*0.66*1000)
-                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/click.wav", "-i", "audio/zap.wav", "-i", "audio/ping.wav", "-filter_complex", f"[1:a]adelay={t_click}|{t_click}[c];[2:a]adelay={t_zap}|{t_zap}[z];[3:a]adelay={t_ping1}|{t_ping1}[p1];[3:a]adelay={t_ping2}|{t_ping2}[p2];[0:a][c][z][p1][p2]amix=inputs=5:duration=first:weights='2.3 1.3 1.1 1.05 1.05'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
-              elif sid == 4:
-                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/whoosh.wav", "-i", "audio/click.wav", "-filter_complex", "[1:a]adelay=150|150[w1];[1:a]adelay=1100|1100[w2];[1:a]adelay=2000|2000[w3];[2:a]adelay=3200|3200[c1];[0:a][w1][w2][w3][c1]amix=inputs=5:duration=first:weights='2.3 0.9 0.9 0.9 1.0'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
-              else:
-                  t_end_ping = int(max(1.0, dur - 1.1) * 1000)
-                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/shift.wav", "-i", "audio/click.wav", "-i", "audio/ping.wav", "-filter_complex", f"[1:a]adelay=100|100[s];[2:a]adelay=2500|2500[c];[3:a]adelay={t_end_ping}|{t_end_ping}[p];[0:a][s][c][p]amix=inputs=4:duration=first:weights='2.3 0.95 1.2 1.2'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
+              t_mid = int(dur * 0.42 * 1000)
+              t_stamp = int(dur * 0.72 * 1000)
+              subprocess.run([
+                  "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                  "-i", v_wav, "-i", "audio/whoosh.wav", "-i", "audio/pop.wav", "-i", "audio/click.wav", "-i", "audio/stamp.wav",
+                  "-filter_complex",
+                  f"[1:a]adelay=80|80[w];[2:a]adelay=650|650[p];[3:a]adelay={t_mid}|{t_mid}[c];[4:a]adelay={t_stamp}|{t_stamp}[st];"
+                  "[0:a][w][p][c][st]amix=inputs=5:duration=first:weights='2.3 0.85 1.0 1.15 1.15'[a]",
+                  "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
+              ], check=True)
 
           total_dur = sum(scene_durations)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"aevalsrc='0.018*sin(2*PI*65*t)+0.014*sin(2*PI*98*t)+0.010*sin(2*PI*147*t)':s=48000:d={total_dur}", "-af", f"afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, total_dur-1.8)}:d=1.8", "-ar", "48000", "-ac", "2", "audio/ambient.wav"], check=True)
-
           concat_in = []
-          for k in range(1, 6): concat_in.extend(["-i", f"audio/scene_{k}_mix.wav"])
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"] + concat_in + ["-filter_complex", "[0:a][1:a][2:a][3:a][4:a]concat=n=5:v=0:a=1[vo]", "-map", "[vo]", "audio/all_vo.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "audio/all_vo.wav", "-i", "audio/ambient.wav", "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first:weights='1.85 0.45'[aout]", "-map", "[aout]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"], check=True)
+          for k in range(1, 6):
+              concat_in.extend(["-i", f"audio/scene_{k}_mix.wav"])
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"] + concat_in + ["-filter_complex", "[0:a][1:a][2:a][3:a][4:a]concat=n=5:v=0:a=1[vo]", "-map", "[vo]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"], check=True)
 
-          print("🎨 [2/4] بناء مسرح 2026 التفاعلي (Apple/Linear Bento + 3D Camera + Blur Captions)...", flush=True)
+          print("🎨 [2/4] بناء المسرح الهندسي بالستايل التركي (3-Color Wireframe + Single-Word Pill + Sliding Dock)...", flush=True)
           scenes_json = json.dumps(scenes_script, ensure_ascii=False)
 
           html_stage = """<!DOCTYPE html>
           <html lang="ar" dir="rtl">
           <head>
           <meta charset="UTF-8">
-          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet">
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body {
               width: 1080px; height: 1920px; overflow: hidden;
               font-family: 'Cairo', sans-serif;
-              background: #050811; color: #f8fafc;
+              background-color: #F7F7F5;
+              color: #141519;
               position: relative;
+              background-image:
+                linear-gradient(to right, rgba(20,21,25,0.065) 1.5px, transparent 1.5px),
+                linear-gradient(to bottom, rgba(20,21,25,0.065) 1.5px, transparent 1.5px);
+              background-size: 48px 48px;
             }
-            .en { font-family: 'Plus Jakarta Sans', sans-serif; direction: ltr; display: inline-block; }
             .mono { font-family: 'JetBrains Mono', monospace; direction: ltr; display: inline-block; }
 
-            #bg-layer {
-              position: absolute; inset: 0; z-index: 0;
-              background: radial-gradient(circle at 50% 25%, #1e1b4b 0%, #050811 70%);
-            }
-            #orb1, #orb2 {
-              position: absolute; border-radius: 50%; filter: blur(95px); opacity: 0.55; z-index: 1;
-            }
-            #orb1 { width: 680px; height: 680px; top: -120px; right: -120px; background: #ef4444; }
-            #orb2 { width: 620px; height: 620px; bottom: 220px; left: -120px; background: #f97316; }
-
-            #grid-overlay {
-              position: absolute; inset: 0; z-index: 2;
-              background-image:
-                linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
-              background-size: 72px 72px;
-            }
-
-            #top-hud {
-              position: absolute; top: 58px; left: 70px; right: 70px; z-index: 30;
+            /* الشريط العلوي بستايل omergocmen: [ 05 ] // 01 */
+            #top-bar {
+              position: absolute; top: 56px; left: 60px; right: 60px; z-index: 30;
               display: flex; align-items: center; justify-content: space-between;
+              direction: ltr;
             }
-            .step-bars { display: flex; gap: 14px; flex: 1; margin-left: 28px; }
-            .s-bar { height: 10px; flex: 1; border-radius: 99px; background: rgba(255,255,255,0.14); overflow: hidden; position: relative; }
-            .s-fill { position: absolute; inset: 0; width: 0%; background: #38bdf8; border-radius: 99px; }
-            .step-badge {
-              padding: 8px 22px; border-radius: 99px; font-size: 22px; font-weight: 900;
-              background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
-              color: #f8fafc; font-family: 'JetBrains Mono', monospace;
+            .chapter-tag {
+              background: #FFFFFF; border: 3px solid #141519;
+              box-shadow: 5px 5px 0px #141519;
+              border-radius: 14px; padding: 10px 24px;
+              font-size: 26px; font-weight: 800; color: #141519;
+              display: flex; align-items: center; gap: 12px;
             }
-
-            #viewport-3d {
-              position: absolute; top: 140px; left: 0; width: 1080px; height: 1280px;
-              perspective: 1400px; z-index: 10;
-              display: flex; align-items: center; justify-content: center;
-            }
-            #camera-rig {
-              width: 960px; height: 1180px; position: relative;
-              transform-style: preserve-3d;
+            .chapter-tag span.orange { color: #F05A28; font-weight: 900; }
+            .brand-pill {
+              background: #141519; color: #FFFFFF;
+              border-radius: 14px; padding: 10px 24px;
+              font-family: 'JetBrains Mono', monospace;
+              font-size: 24px; font-weight: 800;
             }
 
-            .scene {
-              position: absolute; inset: 0; display: none;
-              flex-direction: column; justify-content: center; gap: 28px;
+            /* منطقة المخططات والـ Micro-UI العلوية والوسطى */
+            #wireframe-stage {
+              position: absolute; top: 155px; left: 60px; right: 60px; height: 1050px;
+              z-index: 10; display: flex; flex-direction: column; justify-content: flex-start;
+            }
+            .scene { display: none; flex-direction: column; gap: 26px; width: 100%; }
+
+            /* بطاقات الـ Wireframe الهندسية النظيفة */
+            .wf-card {
+              background: #FFFFFF;
+              border: 3.5px solid #141519;
+              border-radius: 28px;
+              box-shadow: 8px 8px 0px #141519;
+              padding: 32px 36px;
+              position: relative;
+            }
+            .wf-card.orange-bg {
+              background: #F05A28; color: #FFFFFF;
+            }
+            .wf-card.dark-bg {
+              background: #141519; color: #FFFFFF;
+            }
+            .wf-header {
+              display: flex; justify-content: space-between; align-items: center;
+              border-bottom: 2.5px solid rgba(20,21,25,0.12);
+              padding-bottom: 16px; margin-bottom: 20px;
+            }
+            .wf-dots { display: flex; gap: 8px; direction: ltr; }
+            .wf-dot { width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid #141519; background: #FFF; }
+            .wf-dot.or { background: #F05A28; }
+
+            /* شبكة المربعات الستة في المشهد الأول (6-Box Hook Grid) */
+            .grid-6 {
+              display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+            }
+            .g-box {
+              background: #FFFFFF; border: 3px solid #141519; border-radius: 20px;
+              box-shadow: 5px 5px 0px #141519; padding: 22px 16px;
+              text-align: center; font-size: 25px; font-weight: 800;
+            }
+            .g-box.mystery {
+              background: #F05A28; color: #FFFFFF; font-size: 32px; font-weight: 900;
             }
 
-            .bento-card {
-              background: linear-gradient(145deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 100%);
-              border: 1.5px solid rgba(255,255,255,0.14);
-              border-radius: 40px; padding: 36px 42px;
-              box-shadow: 0 30px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.2);
-              position: relative; overflow: hidden;
-            }
-            .bento-row { display: flex; gap: 28px; width: 100%; }
-            .bento-col { flex: 1; }
-
-            .pill-tag {
-              display: inline-flex; align-items: center; gap: 10px;
-              padding: 8px 22px; border-radius: 99px; font-size: 22px; font-weight: 800;
-              background: rgba(239,68,68,0.16); color: #fca5a5; border: 1px solid rgba(239,68,68,0.35);
-              margin-bottom: 18px;
-            }
-            .hero-num { font-size: 76px; font-weight: 900; line-height: 1; letter-spacing: -2px; }
-            .card-h { font-size: 38px; font-weight: 900; line-height: 1.25; margin-top: 8px; }
-            .card-p { font-size: 25px; font-weight: 700; color: #94a3b8; margin-top: 8px; }
-
-            #kinetic-captions {
-              position: absolute; bottom: 85px; left: 60px; right: 60px; height: 320px;
-              z-index: 25; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
-              align-content: center; gap: 14px 20px; text-align: center;
-            }
-            .k-word {
-              font-size: 50px; font-weight: 900; line-height: 1.25;
-              padding: 4px 16px; border-radius: 20px;
-              display: inline-block;
+            /* الأختام البرتقالية المائلة (CEZA / STAMP Style) */
+            .stamp-badge {
+              position: absolute; left: 34px; top: -18px;
+              background: #F05A28; color: #FFFFFF;
+              border: 3px solid #141519; box-shadow: 4px 4px 0px #141519;
+              padding: 8px 26px; border-radius: 14px;
+              font-size: 26px; font-weight: 900;
+              transform: rotate(-6deg); z-index: 25;
             }
 
-            #cursor-layer {
+            /* كبسولة الكلمة الواحدة في المنتصف (Single-Word Black/Orange Pill) */
+            #word-pill-wrap {
+              position: absolute; top: 1175px; left: 0; right: 0;
+              z-index: 35; display: flex; justify-content: center; align-items: center;
+              pointer-events: none;
+            }
+            #single-word-pill {
+              background: #141519; color: #FFFFFF;
+              border: 3.5px solid #141519;
+              box-shadow: 0 14px 30px rgba(20,21,25,0.22);
+              padding: 14px 48px; border-radius: 99px;
+              font-size: 50px; font-weight: 900; line-height: 1.2;
+              text-align: center; min-width: 240px;
+            }
+
+            /* البطاقة السفلية المنزلقة للأعلى والأسفل (Sliding Speaker / Summary Dock Card) */
+            #sliding-bottom-dock {
+              position: absolute; bottom: 0; left: 50px; right: 50px; height: 590px;
+              background: #141519; color: #FFFFFF;
+              border: 4px solid #141519; border-bottom: none;
+              border-radius: 44px 44px 0 0;
+              box-shadow: 0 -20px 50px rgba(20,21,25,0.18);
+              z-index: 20; overflow: hidden;
+              display: flex; flex-direction: column; justify-content: space-between;
+              padding: 36px 44px 44px;
+            }
+            .dock-top-bar {
+              width: 110px; height: 8px; background: rgba(255,255,255,0.25);
+              border-radius: 99px; margin: 0 auto 18px;
+            }
+            .dock-grid-bg {
+              position: absolute; inset: 0; opacity: 0.08; pointer-events: none;
+              background-image: radial-gradient(#FFFFFF 2px, transparent 2px);
+              background-size: 32px 32px;
+            }
+
+            /* مؤشر الماوس الهندسي */
+            #cursor-svg {
               position: absolute; top: 0; left: 0; width: 1080px; height: 1920px;
-              pointer-events: none; z-index: 40; display: none;
-            }
-            #wipe-layer {
-              position: absolute; inset: 0; z-index: 50; pointer-events: none;
-              background: linear-gradient(135deg, #38bdf8, #10b981);
-              transform: translateX(120%);
+              z-index: 45; pointer-events: none; display: none;
             }
           </style>
           </head>
           <body>
-            <div id="bg-layer"></div>
-            <div id="orb1"></div>
-            <div id="orb2"></div>
-            <div id="grid-overlay"></div>
 
-            <div id="top-hud">
-              <div class="step-bars">
-                <div class="s-bar"><div id="bf0" class="s-fill"></div></div>
-                <div class="s-bar"><div id="bf1" class="s-fill"></div></div>
-                <div class="s-bar"><div id="bf2" class="s-fill"></div></div>
-                <div class="s-bar"><div id="bf3" class="s-fill"></div></div>
-                <div class="s-bar"><div id="bf4" class="s-fill"></div></div>
+            <!-- شريط الفصل العلوي بستايل الشاب التركي -->
+            <div id="top-bar">
+              <div class="chapter-tag">
+                <span id="ch-num" class="mono orange">[ 05 ]</span>
+                <span id="ch-title" style="font-family:'Cairo',sans-serif;direction:rtl">01 // نزيف الإعلانات</span>
               </div>
-              <div id="step-num" class="step-badge">01 / 05</div>
+              <div class="brand-pill">TEKVIYO // 2.0</div>
             </div>
 
-            <div id="viewport-3d">
-              <div id="camera-rig">
+            <!-- مسرح الواجهات الخطية التفاعلية (Wireframe Stage) -->
+            <div id="wireframe-stage">
 
-                <!-- المشهد 1 -->
-                <div id="sc-1" class="scene">
-                  <div id="s1-top" class="bento-card" style="text-align:center;border-color:rgba(239,68,68,0.4)">
-                    <span class="pill-tag">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                      نزيف التسويق التقليدي بدون أتمتة
-                    </span>
-                    <div style="font-size:56px;font-weight:900;line-height:1.2">ميزانيتك تحترق.. والعملاء <span id="w-lost" style="display:inline-block;background:#ef4444;color:#fff;padding:2px 24px;border-radius:20px">يضيعون!</span></div>
+              <!-- المشهد 1: خطاف الرقم الكبير + المربعات الستة -->
+              <div id="sc-1" class="scene">
+                <div id="s1-main" class="wf-card" style="text-align:center;padding:40px 36px">
+                  <div id="s1-stamp" class="stamp-badge">هدر شهري // LOST</div>
+                  <div style="font-size:28px;font-weight:800;color:#52525B;margin-bottom:8px">نزيف ميزانية الإعلانات بدون ربط برمجي</div>
+                  <div id="s1-big-num" class="mono" style="font-size:92px;font-weight:900;color:#141519;letter-spacing:-3px;line-height:1">
+                    -$4,850
                   </div>
-
-                  <div class="bento-row">
-                    <div id="s1-right" class="bento-card bento-col" style="border-color:rgba(239,68,68,0.45)">
-                      <div style="display:flex;justify-content:space-between;align-items:center">
-                        <span style="font-size:23px;font-weight:800;color:#fca5a5">ميزانية الإعلانات</span>
-                        <span class="mono" style="background:rgba(239,68,68,0.2);color:#f87171;padding:4px 14px;border-radius:12px;font-size:18px">META ADS</span>
-                      </div>
-                      <div id="burn-counter" class="hero-num mono" style="color:#ef4444;margin:16px 0">-$1,200</div>
-                      <svg width="100%" height="90" viewBox="0 0 360 90">
-                        <path d="M10,15 Q90,25 160,55 T350,82" fill="none" stroke="#ef4444" stroke-width="6" stroke-linecap="round"/>
-                        <circle cx="350" cy="82" r="9" fill="#ffffff" stroke="#ef4444" stroke-width="5"/>
-                      </svg>
-                      <div class="card-p" style="color:#fca5a5">نقرات مكلفة بلا متابعة فورية</div>
-                    </div>
-
-                    <div id="s1-left" class="bento-card bento-col" style="border-color:rgba(249,115,22,0.45)">
-                      <div style="display:flex;justify-content:space-between;align-items:center">
-                        <span style="font-size:23px;font-weight:800;color:#fdba74">رسائل غير مقروءة</span>
-                        <span class="mono" style="background:rgba(249,115,22,0.2);color:#fb923c;padding:4px 14px;border-radius:12px;font-size:18px">WHATSAPP</span>
-                      </div>
-                      <div style="display:flex;align-items:baseline;gap:12px;margin:16px 0">
-                        <span id="wa-counter" class="mono hero-num" style="color:#fb923c">+12</span>
-                        <span style="font-size:32px;font-weight:900;color:#fff">رسالة معلقة</span>
-                      </div>
-                      <div style="background:rgba(255,255,255,0.07);border-right:4px solid #fb923c;padding:12px 16px;border-radius:16px;font-size:20px;font-weight:700;margin-bottom:10px">
-                        "أريد حجز موعد عاجل.. هل من مجيب؟"
-                      </div>
-                      <div style="background:rgba(239,68,68,0.15);border-right:4px solid #ef4444;padding:10px 16px;border-radius:16px;font-size:19px;font-weight:800;color:#fca5a5">
-                        غادر العميل لعدم الرد منذ 3 ساعات
-                      </div>
-                    </div>
+                  <div style="margin-top:16px;display:inline-block;background:#F05A28;color:#FFF;padding:6px 24px;border-radius:12px;font-size:25px;font-weight:900">
+                    64% من العملاء يضيعون في زحمة الواتساب
                   </div>
+                </div>
 
-                  <div id="s1-bot" class="bento-card" style="display:flex;align-items:center;justify-content:space-between;border-style:dashed;border-color:rgba(248,113,113,0.5)">
-                    <div>
-                      <div class="card-h" style="color:#fecaca">إدخال يدوي على ورق وجداول مبعثرة</div>
-                      <div class="card-p">ضياع 64% من العملاء المحتملين بسبب البطء البشري</div>
+                <!-- شبكة المربعات الستة على طريقة الفيديو التركي -->
+                <div class="grid-6">
+                  <div id="b1" class="g-box"><div class="mono" style="color:#71717A;font-size:18px">01</div>إعلان ممول</div>
+                  <div id="b2" class="g-box"><div class="mono" style="color:#71717A;font-size:18px">02</div>+99 واتساب</div>
+                  <div id="b3" class="g-box"><div class="mono" style="color:#71717A;font-size:18px">03</div>ورق يدوي</div>
+                  <div id="b4" class="g-box"><div class="mono" style="color:#71717A;font-size:18px">04</div>تأخر الرد</div>
+                  <div id="b5" class="g-box"><div class="mono" style="color:#71717A;font-size:18px">05</div>تشتت الموظف</div>
+                  <div id="b6" class="g-box mystery"><div class="mono" style="font-size:18px">06</div><span id="b6-txt">[ ? ]</span></div>
+                </div>
+              </div>
+
+              <!-- المشهد 2: تغيير القواعد وبناء عقل الأعمال -->
+              <div id="sc-2" class="scene">
+                <div id="s2-core" class="wf-card dark-bg" style="text-align:center;padding:44px">
+                  <div class="mono" style="color:#F05A28;font-size:22px;font-weight:800;margin-bottom:8px">// THE BRAIN OF YOUR BUSINESS</div>
+                  <div class="mono" style="font-size:84px;font-weight:900;letter-spacing:-2px;line-height:1">
+                    TEK<span style="color:#F05A28">VIYO</span> 2.0
+                  </div>
+                  <div style="font-size:36px;font-weight:900;margin-top:14px;color:#F7F7F5">
+                    لا نصمم إعلانات فقط.. نحن نبني (عقل) أعمالك
+                  </div>
+                </div>
+
+                <!-- مخطط معماري متصل بالأسهم المنقطة -->
+                <div id="s2-diagram" class="wf-card" style="padding:32px">
+                  <div class="wf-header">
+                    <span style="font-size:24px;font-weight:900">معمارية الربط السحابي الموحد</span>
+                    <div class="wf-dots"><div class="wf-dot or"></div><div class="wf-dot"></div><div class="wf-dot"></div></div>
+                  </div>
+                  <svg width="100%" height="260" viewBox="0 0 880 260">
+                    <line id="s2-l1" x1="440" y1="45" x2="150" y2="175" stroke="#141519" stroke-width="4" stroke-dasharray="10,8"/>
+                    <line id="s2-l2" x1="440" y1="45" x2="440" y2="175" stroke="#F05A28" stroke-width="5" stroke-dasharray="10,8"/>
+                    <line id="s2-l3" x1="440" y1="45" x2="730" y2="175" stroke="#141519" stroke-width="4" stroke-dasharray="10,8"/>
+
+                    <rect x="310" y="10" width="260" height="64" rx="16" fill="#F05A28" stroke="#141519" stroke-width="3.5"/>
+                    <text x="440" y="50" text-anchor="middle" fill="#FFF" font-family="JetBrains Mono" font-size="24" font-weight="800">TEKVIYO CORE</text>
+
+                    <rect x="30" y="165" width="240" height="78" rx="18" fill="#FFF" stroke="#141519" stroke-width="3.5"/>
+                    <text x="150" y="212" text-anchor="middle" fill="#141519" font-family="Cairo" font-size="24" font-weight="900">إعلانات الممول</text>
+
+                    <rect x="320" y="165" width="240" height="78" rx="18" fill="#141519" stroke="#141519" stroke-width="3.5"/>
+                    <text x="440" y="212" text-anchor="middle" fill="#FFF" font-family="Cairo" font-size="24" font-weight="900">لوحة السكرتيرة</text>
+
+                    <rect x="610" y="165" width="240" height="78" rx="18" fill="#FFF" stroke="#141519" stroke-width="3.5"/>
+                    <text x="730" y="212" text-anchor="middle" fill="#141519" font-family="Cairo" font-size="24" font-weight="900">تأكيد واتساب</text>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- المشهد 3: السحر التقني (Webhooks + Database Drop مثل الدقيقة 00:30 في الفيديو التركي) -->
+              <div id="sc-3" class="scene" style="gap:18px">
+                <!-- المحطة 1: فورم إعلان العميل -->
+                <div id="s3-form" class="wf-card" style="padding:26px 32px">
+                  <div class="wf-header" style="margin-bottom:14px;padding-bottom:10px">
+                    <span class="mono" style="font-size:20px;font-weight:800">01 // META LEAD FORM</span>
+                    <span style="background:#F05A28;color:#FFF;padding:3px 14px;border-radius:8px;font-size:18px;font-weight:900">هاتف العميل</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:18px">
+                    <div style="flex:1;background:#F7F7F5;border:2.5px solid #141519;border-radius:14px;padding:12px 20px;font-size:23px;font-weight:800">
+                      <span style="color:#71717A">العميل:</span> <span id="typed-lead">أحمد محمد • حجز عيادة</span>
                     </div>
-                    <div style="background:#ef4444;color:#fff;font-size:34px;font-weight:900;padding:14px 32px;border-radius:24px;box-shadow:0 15px 35px rgba(239,68,68,0.45)">
-                      فوضى إدارية
+                    <div id="s3-submit-btn" style="background:#141519;color:#FFF;padding:14px 30px;border-radius:16px;font-size:24px;font-weight:900;border:2.5px solid #141519">
+                      تسجيل الموعد 👆
                     </div>
                   </div>
                 </div>
 
-                <!-- المشهد 2 -->
-                <div id="sc-2" class="scene">
-                  <div id="s2-hero" class="bento-card" style="text-align:center;border-color:rgba(56,189,248,0.5);padding:48px">
-                    <div class="pill-tag" style="background:rgba(56,189,248,0.14);color:#38bdf8;border-color:rgba(56,189,248,0.4)">
-                      <span style="width:12px;height:12px;border-radius:50%;background:#4ade80;display:inline-block"></span>
-                      الجيل الجديد من أتمتة الأعمال 2026
-                    </div>
-                    <div class="en" style="font-size:96px;font-weight:800;letter-spacing:-3px;line-height:1;color:#fff;margin:10px 0">
-                      TEK<span style="color:#38bdf8">VIYO</span> <span style="font-size:52px;color:#4ade80">2.0</span>
-                    </div>
-                    <div style="font-size:44px;font-weight:900;color:#e2e8f0;margin-top:16px">
-                      نحن لا نصمم إعلانات فقط.. نحن نبني <span id="brain-word" style="color:#4ade80;display:inline-block">(عقل) أعمالك</span>
-                    </div>
-                  </div>
-
-                  <div id="s2-grid" class="bento-card" style="border-color:rgba(74,222,128,0.4)">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:26px">
-                      <span style="font-size:28px;font-weight:900;color:#38bdf8">البنية السحابية الموحدة للنظام</span>
-                      <span class="mono" style="color:#4ade80;font-size:22px;font-weight:800">● AI CORE ACTIVE</span>
-                    </div>
-                    <div class="bento-row" style="text-align:center">
-                      <div style="flex:1;background:rgba(255,255,255,0.04);padding:26px;border-radius:28px;border:1px solid rgba(56,189,248,0.3)">
-                        <div class="mono" style="font-size:56px;font-weight:900;color:#38bdf8">0.1s</div>
-                        <div style="font-size:24px;font-weight:800;margin-top:8px">سرعة التقاط العميل</div>
-                      </div>
-                      <div style="flex:1;background:rgba(255,255,255,0.04);padding:26px;border-radius:28px;border:1px solid rgba(74,222,128,0.35)">
-                        <div class="mono" style="font-size:56px;font-weight:900;color:#4ade80">100%</div>
-                        <div style="font-size:24px;font-weight:800;margin-top:8px">أتمتة بلا تدخل بشري</div>
-                      </div>
-                      <div style="flex:1;background:rgba(255,255,255,0.04);padding:26px;border-radius:28px;border:1px solid rgba(56,189,248,0.3)">
-                        <div class="mono" style="font-size:56px;font-weight:900;color:#facc15">24/7</div>
-                        <div style="font-size:24px;font-weight:800;margin-top:8px">تأكيد ومتابعة فورية</div>
-                      </div>
-                    </div>
+                <!-- سهم انتقال حزمة الـ Webhook -->
+                <div style="height:64px;display:flex;align-items:center;justify-content:center;position:relative">
+                  <svg width="400" height="64" viewBox="0 0 400 64">
+                    <line x1="200" y1="0" x2="200" y2="64" stroke="#141519" stroke-width="4" stroke-dasharray="8,6"/>
+                  </svg>
+                  <div id="s3-packet" class="mono" style="position:absolute;background:#F05A28;color:#FFF;border:3px solid #141519;box-shadow:4px 4px 0px #141519;padding:6px 22px;border-radius:99px;font-size:20px;font-weight:800">
+                    ⚡ WEBHOOK // 0.1s
                   </div>
                 </div>
 
-                <!-- المشهد 3 -->
-                <div id="sc-3" class="scene" style="gap:22px">
-                  <div id="s3-step1" class="bento-card" style="display:flex;align-items:center;justify-content:space-between;border-color:rgba(56,189,248,0.5)">
-                    <div style="display:flex;align-items:center;gap:24px">
-                      <div style="width:86px;height:86px;border-radius:24px;background:rgba(56,189,248,0.15);display:flex;align-items:center;justify-content:center;border:2px solid #38bdf8">
-                        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                      </div>
-                      <div>
-                        <div class="mono" style="font-size:20px;color:#38bdf8;font-weight:800">01 • META LEAD AD</div>
-                        <div style="font-size:34px;font-weight:900;color:#fff">إعلان عيادة الابتسامة الرقمية</div>
-                        <div style="font-size:22px;color:#94a3b8;font-weight:700">العميل يضغط زر التسجيل من هاتفه</div>
-                      </div>
-                    </div>
-                    <div id="s3-btn" style="background:linear-gradient(135deg,#0284c7,#38bdf8);color:#fff;padding:18px 36px;border-radius:24px;font-size:28px;font-weight:900;box-shadow:0 15px 35px rgba(56,189,248,0.4)">
-                      تسجيل الموعد
-                    </div>
+                <!-- المحطة 2: صندوق قاعدة بيانات السكرتيرة الذي تسقط داخله الكبسولات السوداء -->
+                <div id="s3-db" class="wf-card" style="padding:26px 32px">
+                  <div id="s3-stamp" class="stamp-badge" style="background:#10B981;color:#141519">مريض جديد من فيسبوك ✓</div>
+                  <div class="wf-header" style="margin-bottom:14px;padding-bottom:10px">
+                    <span class="mono" style="font-size:20px;font-weight:800">02 // RECEPTION CRM DATABASE</span>
+                    <span class="mono" style="color:#10B981;font-weight:900;font-size:20px">● AUTO-SYNCED</span>
                   </div>
-
-                  <div style="height:70px;display:flex;align-items:center;justify-content:center;position:relative">
-                    <div style="width:6px;height:100%;background:rgba(255,255,255,0.12);border-radius:99px;position:relative;overflow:hidden">
-                      <div id="webhook-beam" style="position:absolute;top:0;left:0;right:0;height:0%;background:linear-gradient(180deg,#38bdf8,#4ade80)"></div>
-                    </div>
-                    <div class="mono" style="position:absolute;background:#0f172a;border:2px solid #4ade80;color:#4ade80;padding:6px 22px;border-radius:99px;font-size:20px;font-weight:800;box-shadow:0 0 30px rgba(74,222,128,0.5)">
-                      ⚡ WEBHOOK • 0.1s
-                    </div>
-                  </div>
-
-                  <div id="s3-step2" class="bento-card" style="display:flex;align-items:center;justify-content:space-between;border-color:rgba(16,185,129,0.55);background:linear-gradient(145deg,rgba(6,78,59,0.45),rgba(5,24,18,0.8))">
-                    <div style="display:flex;align-items:center;gap:24px">
-                      <div style="width:86px;height:86px;border-radius:24px;background:rgba(16,185,129,0.2);display:flex;align-items:center;justify-content:center;border:2px solid #10b981">
-                        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                      </div>
-                      <div>
-                        <div class="mono" style="font-size:20px;color:#4ade80;font-weight:800">02 • RECEPTION DASHBOARD</div>
-                        <div style="font-size:34px;font-weight:900;color:#fff">مريض جديد في شاشة السكرتيرة</div>
-                        <div style="font-size:22px;color:#a7f3d0;font-weight:700">الاسم ورقم الهاتف والخدمة محفوظة تلقائياً</div>
-                      </div>
-                    </div>
-                    <div class="mono" style="font-size:44px;font-weight:900;color:#4ade80">LIVE</div>
-                  </div>
-
-                  <div id="s3-step3" class="bento-card" style="display:flex;align-items:center;justify-content:space-between;border-color:rgba(74,222,128,0.6)">
-                    <div style="display:flex;align-items:center;gap:24px">
-                      <div style="width:86px;height:86px;border-radius:24px;background:#10b981;display:flex;align-items:center;justify-content:center">
-                        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#051812" stroke-width="2.8"><polyline points="20 6 9 17 4 12"/></svg>
-                      </div>
-                      <div>
-                        <div class="mono" style="font-size:20px;color:#4ade80;font-weight:800">03 • AUTO WHATSAPP API</div>
-                        <div style="font-size:34px;font-weight:900;color:#fff">"أهلاً بك! تم تأكيد موعدك بنجاح"</div>
-                        <div style="font-size:22px;color:#94a3b8;font-weight:700">تصل للعميل في ثانية واحدة بدون تدخل بشري</div>
-                      </div>
-                    </div>
+                  <div style="display:flex;gap:14px;flex-wrap:wrap">
+                    <div id="db-p1" style="background:#141519;color:#FFF;padding:10px 22px;border-radius:99px;font-size:22px;font-weight:800">👤 أحمد محمد</div>
+                    <div id="db-p2" style="background:#141519;color:#FFF;padding:10px 22px;border-radius:99px;font-size:22px;font-weight:800" class="mono">📞 +90 555 019</div>
+                    <div id="db-p3" style="background:#F05A28;color:#FFF;padding:10px 22px;border-radius:99px;font-size:22px;font-weight:800">🦷 تجميل أسنان</div>
                   </div>
                 </div>
 
-                <!-- المشهد 4: الوضع النهاري النظيف (@ghalebgi Light Mode) -->
-                <div id="sc-4" class="scene">
-                  <div style="text-align:center;margin-bottom:8px">
-                    <span class="mono" style="background:#0284c7;color:#fff;padding:6px 22px;border-radius:99px;font-size:20px;font-weight:800">CLOUD ECOSYSTEM 2026</span>
-                    <div style="font-size:54px;font-weight:900;color:#0f172a;margin-top:10px">أنظمة سحابية مخصصة لكل قطاع</div>
+                <!-- المحطة 3: رسالة الواتساب الأوتوماتيكية -->
+                <div id="s3-wa" class="wf-card dark-bg" style="padding:24px 32px;display:flex;align-items:center;justify-content:space-between">
+                  <div>
+                    <div class="mono" style="color:#4ADE80;font-size:19px;font-weight:800">03 // WHATSAPP AUTO-REPLY (1 SECOND)</div>
+                    <div style="font-size:30px;font-weight:900;margin-top:4px">"أهلاً بك! تم تأكيد موعدك في العيادة تلقائياً ✅"</div>
                   </div>
+                  <div class="mono" style="background:#4ADE80;color:#141519;padding:10px 20px;border-radius:14px;font-size:22px;font-weight:900">SENT</div>
+                </div>
+              </div>
 
-                  <div id="s4-c1" class="bento-card" style="background:#ffffff;border:2px solid #e2e8f0;box-shadow:0 25px 50px rgba(15,23,42,0.08);display:flex;align-items:center;justify-content:space-between;padding:28px 38px">
-                    <div>
-                      <span class="mono" style="color:#0284c7;font-size:20px;font-weight:800">01 / DENTACARE CLOUD</span>
-                      <div style="font-size:36px;font-weight:900;color:#0f172a">منظومة العيادات والمراكز الطبية</div>
-                      <div style="font-size:23px;font-weight:700;color:#475569">ملفات المرضى، أتمتة المواعيد، وتنبيهات الواتساب</div>
-                    </div>
-                    <div class="mono" style="background:#e0f2fe;color:#0369a1;padding:14px 26px;border-radius:20px;font-size:24px;font-weight:900">HEALTH</div>
+              <!-- المشهد 4: استعراض الأنظمة السحابية الثلاثة -->
+              <div id="sc-4" class="scene" style="gap:20px">
+                <div id="s4-w1" class="wf-card" style="padding:26px 32px;display:flex;align-items:center;justify-content:space-between">
+                  <div>
+                    <span class="mono" style="color:#F05A28;font-size:19px;font-weight:800">01 // DENTACARE CLOUD</span>
+                    <div style="font-size:34px;font-weight:900">منظومة العيادات والمراكز الطبية</div>
+                    <div style="font-size:22px;color:#52525B;font-weight:700">ملفات المرضى، الحجوزات، وتنبيهات الواتساب الذكية</div>
                   </div>
+                  <div class="mono" style="background:#141519;color:#FFF;padding:12px 22px;border-radius:16px;font-size:22px;font-weight:800">CLINIC</div>
+                </div>
 
-                  <div id="s4-c2" class="bento-card" style="background:#ffffff;border:2px solid #e2e8f0;box-shadow:0 25px 50px rgba(15,23,42,0.08);display:flex;align-items:center;justify-content:space-between;padding:28px 38px">
-                    <div>
-                      <span class="mono" style="color:#059669;font-size:20px;font-weight:800">02 / REAL ESTATE CRM</span>
-                      <div style="font-size:36px;font-weight:900;color:#0f172a">منظومة المؤسسات العقارية</div>
-                      <div style="font-size:23px;font-weight:700;color:#475569">ربط الحملات الإعلانية بالمستشارين وتتبع المبيعات لحظياً</div>
-                    </div>
-                    <div class="mono" style="background:#d1fae5;color:#047857;padding:14px 26px;border-radius:20px;font-size:24px;font-weight:900">ESTATE</div>
+                <div id="s4-w2" class="wf-card" style="padding:26px 32px;display:flex;align-items:center;justify-content:space-between">
+                  <div>
+                    <span class="mono" style="color:#F05A28;font-size:19px;font-weight:800">02 // REAL ESTATE CRM</span>
+                    <div style="font-size:34px;font-weight:900">منظومة المؤسسات العقارية</div>
+                    <div style="font-size:22px;color:#52525B;font-weight:700">توزيع العملاء على المستشارين وتتبع المبيعات لحظياً</div>
                   </div>
+                  <div class="mono" style="background:#F05A28;color:#FFF;padding:12px 22px;border-radius:16px;font-size:22px;font-weight:800">ESTATE</div>
+                </div>
 
-                  <div id="s4-c3" class="bento-card" style="background:#ffffff;border:2px solid #e2e8f0;box-shadow:0 25px 50px rgba(15,23,42,0.08);display:flex;align-items:center;justify-content:space-between;padding:28px 38px">
-                    <div>
-                      <span class="mono" style="color:#d97706;font-size:20px;font-weight:800">03 / RETAIL & ENTERPRISE</span>
-                      <div style="font-size:36px;font-weight:900;color:#0f172a">مبيعات التجزئة ومراكز الأعمال</div>
-                      <div style="font-size:23px;font-weight:700;color:#475569">تقارير مالية، إدارة فروع، ذكاء GEO، وتطبيق جوال</div>
-                    </div>
-                    <div class="mono" style="background:#fef3c7;color:#b45309;padding:14px 26px;border-radius:20px;font-size:24px;font-weight:900">RETAIL</div>
+                <div id="s4-w3" class="wf-card" style="padding:26px 32px;display:flex;align-items:center;justify-content:space-between">
+                  <div>
+                    <span class="mono" style="color:#F05A28;font-size:19px;font-weight:800">03 // RETAIL & GEO AI</span>
+                    <div style="font-size:34px;font-weight:900">مبيعات التجزئة ومراكز الأعمال</div>
+                    <div style="font-size:22px;color:#52525B;font-weight:700">تقارير مالية، إدارة فروع، ذكاء GEO، وتطبيق جوال</div>
+                  </div>
+                  <div class="mono" style="background:#141519;color:#FFF;padding:12px 22px;border-radius:16px;font-size:22px;font-weight:800">RETAIL</div>
+                </div>
+              </div>
+
+              <!-- المشهد 5: الدعوة لاتخاذ إجراء (حقل الكتابة التفاعلي مثل الدقيقة 00:53 في الفيديو التركي) -->
+              <div id="sc-5" class="scene">
+                <div id="s5-top" class="wf-card" style="text-align:center;padding:42px 36px">
+                  <div class="stamp-badge" style="left:40px;top:-20px">انطلق للمستقبل // 2026</div>
+                  <div class="mono" style="font-size:86px;font-weight:900;color:#141519;line-height:1;letter-spacing:-3px">
+                    TEK<span style="color:#F05A28">VIYO</span>
+                  </div>
+                  <div style="font-size:46px;font-weight:900;margin:16px 0 8px">
+                    لا تسوّق فقط.. <span style="color:#F05A28">قُد سوقك بذكاء.</span>
+                  </div>
+                  <div style="font-size:25px;color:#52525B;font-weight:700">
+                    ابنِ منظومة سحابية متكاملة لا تُقهر وأتمت أعمالك اليوم
                   </div>
                 </div>
 
-                <!-- المشهد 5 -->
-                <div id="sc-5" class="scene" style="text-align:center">
-                  <div id="s5-card" class="bento-card" style="padding:56px 44px;border-color:rgba(56,189,248,0.55);background:linear-gradient(180deg,rgba(15,23,42,0.92),rgba(5,8,17,0.96))">
-                    <div class="en" style="font-size:104px;font-weight:800;letter-spacing:-3px;color:#fff;line-height:1">
-                      TEK<span style="color:#38bdf8">VIYO</span>
+                <!-- نافذة حجز الاستشارة التفاعلية -->
+                <div id="s5-box" class="wf-card" style="padding:30px 36px">
+                  <div style="font-size:23px;font-weight:800;color:#52525B;margin-bottom:12px">احجز استشارتك التقنية المجانية الآن:</div>
+                  <div style="display:flex;gap:16px;align-items:center">
+                    <div style="flex:1;background:#F7F7F5;border:3px solid #141519;border-radius:18px;padding:18px 24px;font-size:30px;font-weight:900" class="mono">
+                      <span id="s5-typed">www.tekviyo.com</span><span style="color:#F05A28">|</span>
                     </div>
-                    <div style="font-size:56px;font-weight:900;color:#fff;margin:26px 0 14px;line-height:1.2">
-                      لا تسوّق فقط.. <span style="color:#4ade80">قُد سوقك بذكاء.</span>
-                    </div>
-                    <div style="font-size:28px;color:#94a3b8;font-weight:700;margin-bottom:42px">
-                      ابنِ منظومة سحابية متكاملة لا تُقهر وأتمت أعمالك بالكامل
-                    </div>
-
-                    <div id="s5-cta" style="background:linear-gradient(90deg,#10b981,#38bdf8);color:#041019;padding:28px 44px;border-radius:30px;font-size:40px;font-weight:900;box-shadow:0 25px 60px rgba(16,185,129,0.45);display:inline-block;width:90%">
-                      احجز استشارتك التقنية المجانية الآن
-                    </div>
-
-                    <div style="display:flex;justify-content:center;gap:40px;margin-top:36px;font-size:26px;font-weight:800;color:#cbd5e1">
-                      <span class="mono" style="color:#38bdf8">www.tekviyo.com</span>
-                      <span>•</span>
-                      <span>أتمتة سحابية متكاملة</span>
+                    <div id="s5-send" style="background:#F05A28;color:#FFF;border:3px solid #141519;box-shadow:5px 5px 0px #141519;padding:18px 36px;border-radius:18px;font-size:28px;font-weight:900">
+                      إرسال الطلب ↗
                     </div>
                   </div>
                 </div>
+              </div>
 
+            </div>
+
+            <!-- كبسولة الكلمة الواحدة في منتصف الشاشة (Single-Word Black/Orange Pill) -->
+            <div id="word-pill-wrap">
+              <div id="single-word-pill">تصرف</div>
+            </div>
+
+            <!-- البطاقة السفلية المنزلقة للأعلى والأسفل (Sliding Speaker / Live Verdict Dock) -->
+            <div id="sliding-bottom-dock">
+              <div class="dock-grid-bg"></div>
+              <div>
+                <div class="dock-top-bar"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span id="dock-tag" class="mono" style="background:#F05A28;color:#FFF;padding:6px 20px;border-radius:99px;font-size:20px;font-weight:800">
+                    LIVE ANALYSIS // 01
+                  </span>
+                  <span class="mono" style="color:rgba(255,255,255,0.6);font-size:20px;font-weight:700">TEKVIYO STUDIO</span>
+                </div>
+              </div>
+
+              <div style="text-align:center;my:auto;position:relative;z-index:2">
+                <div id="dock-big" style="font-size:56px;font-weight:900;color:#FFFFFF;line-height:1.2">
+                  إعلانات بدون نظام = نزيف مستمر
+                </div>
+                <div id="dock-sub" style="font-size:27px;font-weight:700;color:#A1A1AA;margin-top:12px">
+                  الربط البرمجي اللحظي يحفظ كل عميل في أجزاء من الثانية
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1.5px solid rgba(255,255,255,0.15);padding-top:20px">
+                <span style="font-size:23px;font-weight:800;color:#F05A28">● أتمتة سحابية 100%</span>
+                <span id="dock-metric" class="mono" style="font-size:28px;font-weight:900;color:#4ADE80">0.1s RESPONSE</span>
               </div>
             </div>
 
-            <div id="kinetic-captions"></div>
-
-            <svg id="cursor-layer" viewBox="0 0 1080 1920">
-              <circle id="click-ring" cx="0" cy="0" r="38" fill="none" stroke="#4ade80" stroke-width="5" opacity="0"/>
-              <g id="cursor-arrow" transform="translate(500,500)">
-                <path d="M0,0 L0,46 L14,34 L26,56 L36,50 L24,28 L42,28 Z" fill="#ffffff" stroke="#0f172a" stroke-width="3"/>
+            <!-- مؤشر الماوس الهندسي -->
+            <svg id="cursor-svg" viewBox="0 0 1080 1920">
+              <circle id="c-ring" cx="0" cy="0" r="36" fill="none" stroke="#F05A28" stroke-width="5" opacity="0"/>
+              <g id="c-arrow" transform="translate(500,500)">
+                <path d="M0,0 L0,48 L15,36 L27,58 L38,52 L25,30 L44,30 Z" fill="#141519" stroke="#FFFFFF" stroke-width="3.5"/>
               </g>
             </svg>
-
-            <div id="wipe-layer"></div>
 
             <script>
               const SCENES = __SCENES_JSON__;
 
+              const DOCK_DATA = [
+                { tag: 'ALERT // 01', big: 'إعلانات بدون أتمتة = نزيف مستمر', sub: 'ضياع العملاء في زحمة الواتساب والورق اليدوي', metric: '-$4,850 / MO' },
+                { tag: 'SHIFT // 02', big: 'نبني (عقل) أعمالك الرقمي المتكامل', sub: 'منظومة SaaS تربط التسويق بالإدارة والمبيعات', metric: '100% AUTOMATED' },
+                { tag: 'MAGIC // 03', big: 'من إعلان فيسبوك ⬅ لشاشة السكرتيرة', sub: 'وتأكيد الموعد يصل للعميل بالواتساب في ثانية!', metric: '0.1s WEBHOOK' },
+                { tag: 'CLOUD // 04', big: 'عيادات • عقارات • مراكز أعمال', sub: 'تقارير مالية، إدارة فروع، وذكاء اصطناعي GEO', metric: '24/7 CONTROL' },
+                { tag: 'START // 05', big: 'لا تسوّق فقط.. قُد سوقك بذكاء.', sub: 'احجز استشارتك التقنية المجانية مع TEKVIYO اليوم', metric: 'TEKVIYO.COM' }
+              ];
+
               function easeOutBack(x) {
                 x = Math.max(0, Math.min(1, x));
-                return 1 + 2.3 * Math.pow(x - 1, 3) + 1.3 * Math.pow(x - 1, 2);
+                return 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2);
               }
 
               window.renderFrame = function(scIdx, prog, tGlobal, tScene, durScene) {
-                document.getElementById('step-num').innerText = '0' + (scIdx + 1) + ' / 05';
-                for (let i = 0; i < 5; i++) {
-                  const fill = document.getElementById('bf' + i);
-                  fill.style.width = (i < scIdx) ? '100%' : (i === scIdx ? (prog * 100) + '%' : '0%');
-                  fill.style.background = (scIdx === 3) ? '#0284c7' : (scIdx === 0 ? '#ef4444' : '#38bdf8');
-                }
-
-                const bg = document.getElementById('bg-layer');
-                const o1 = document.getElementById('orb1');
-                const o2 = document.getElementById('orb2');
-                const stepNum = document.getElementById('step-num');
-                if (scIdx === 0) {
-                  bg.style.background = 'radial-gradient(circle at 50% 25%, #2a0a18 0%, #050811 75%)';
-                  o1.style.background = '#ef4444'; o2.style.background = '#f97316';
-                  stepNum.style.color = '#f8fafc'; stepNum.style.background = 'rgba(255,255,255,0.08)';
-                } else if (scIdx === 3) {
-                  bg.style.background = 'linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%)';
-                  o1.style.background = '#bae6fd'; o2.style.background = '#a7f3d0';
-                  stepNum.style.color = '#0f172a'; stepNum.style.background = 'rgba(15,23,42,0.08)';
-                } else {
-                  bg.style.background = 'radial-gradient(circle at 50% 25%, #0c2444 0%, #040711 75%)';
-                  o1.style.background = '#0284c7'; o2.style.background = '#10b981';
-                  stepNum.style.color = '#f8fafc'; stepNum.style.background = 'rgba(255,255,255,0.08)';
-                }
-
-                o1.style.transform = 'translate(' + (Math.sin(tGlobal*1.5)*45) + 'px, ' + (Math.cos(tGlobal*1.2)*45) + 'px)';
-                o2.style.transform = 'translate(' + (Math.cos(tGlobal*1.4)*45) + 'px, ' + (Math.sin(tGlobal*1.6)*45) + 'px)';
+                const sc = SCENES[scIdx];
+                const parts = sc.badge.split('//');
+                document.getElementById('ch-num').innerText = parts[0].trim();
+                document.getElementById('ch-title').innerText = '// ' + parts[1].trim();
 
                 for (let i = 1; i <= 5; i++) {
                   document.getElementById('sc-' + i).style.display = (i === scIdx + 1) ? 'flex' : 'none';
                 }
 
-                const rig = document.getElementById('camera-rig');
-                const rotX = Math.sin(tGlobal * 1.6) * 3.5;
-                const rotY = Math.cos(tGlobal * 1.3) * 4.5;
-                let camScale = 1.0;
-                let camY = 0;
+                // 1. كبسولة الكلمة الواحدة في منتصف الشاشة (Single-Word Pill)
+                const words = sc.words;
+                const wIdx = Math.min(words.length - 1, Math.floor(prog * words.length * 1.04));
+                const currentWord = words[wIdx];
+                const isHighlight = sc.highlights.indexOf(currentWord) !== -1;
+                const pill = document.getElementById('single-word-pill');
+                pill.innerText = currentWord;
+                const wordPhase = (prog * words.length) % 1;
+                const pillPop = isHighlight ? (1.08 + 0.06 * Math.sin(wordPhase * Math.PI)) : (0.96 + 0.04 * Math.sin(wordPhase * Math.PI));
+                pill.style.background = isHighlight ? '#F05A28' : '#141519';
+                pill.style.transform = 'scale(' + pillPop + ')';
 
-                const cursorLayer = document.getElementById('cursor-layer');
-                const cursorArrow = document.getElementById('cursor-arrow');
-                const clickRing = document.getElementById('click-ring');
-                cursorLayer.style.display = 'none';
+                // 2. انزلاق البطاقة السفلية للأعلى والأسفل كما في الفيديو التركي (Sliding Bottom Dock)
+                const dock = document.getElementById('sliding-bottom-dock');
+                const pillWrap = document.getElementById('word-pill-wrap');
+                const dInfo = DOCK_DATA[scIdx];
+                document.getElementById('dock-tag').innerText = dInfo.tag;
+                document.getElementById('dock-big').innerText = dInfo.big;
+                document.getElementById('dock-sub').innerText = dInfo.sub;
+                document.getElementById('dock-metric').innerText = dInfo.metric;
+
+                let dockSlideY = 0;
+                if (scIdx === 2) {
+                  // في المشهد الثالث (شرح الـ Webhook التفصيلي) تنزلق البطاقة للأسفل لتفتح الشاشة للمخطط ثم تصعد في النهاية!
+                  if (prog < 0.72) {
+                    dockSlideY = Math.min(470, prog * 950);
+                  } else {
+                    dockSlideY = Math.max(0, 470 - (prog - 0.72) * 1800);
+                  }
+                } else if (scIdx === 3) {
+                  // في المشهد الرابع تنزلق البطاقة جزئياً لإبراز النوافذ الثلاث ثم تصعد
+                  dockSlideY = (prog < 0.65) ? 240 : Math.max(0, 240 - (prog - 0.65) * 900);
+                } else {
+                  const enterP = easeOutBack(tScene / 0.45);
+                  dockSlideY = (1 - enterP) * 320;
+                }
+                dock.style.transform = 'translateY(' + dockSlideY + 'px)';
+                pillWrap.style.transform = 'translateY(' + (dockSlideY * 0.38) + 'px)';
+
+                // 3. تحريك عناصر الـ Micro-UI داخل كل مشهد
+                const cursorSvg = document.getElementById('cursor-svg');
+                const cArrow = document.getElementById('c-arrow');
+                const cRing = document.getElementById('c-ring');
+                cursorSvg.style.display = 'none';
 
                 if (scIdx === 0) {
-                  const pTop = easeOutBack(tScene / 0.45);
-                  document.getElementById('s1-top').style.transform = 'scale(' + pTop + ') translateY(' + ((1-pTop)*50) + 'px)';
-                  const burnVal = Math.min(4850, Math.floor(1200 + prog * 4600));
-                  document.getElementById('burn-counter').innerText = '-$' + burnVal.toLocaleString();
-                  const waVal = Math.min(99, Math.floor(12 + prog * 115));
-                  document.getElementById('wa-counter').innerText = '+' + waVal;
-                  const shake = (prog > 0.45) ? Math.sin(tGlobal * 32) * 6 : 0;
-                  document.getElementById('s1-left').style.transform = 'translateX(' + shake + 'px)';
-                  document.getElementById('w-lost').style.transform = 'scale(' + (1 + Math.sin(tGlobal*10)*0.06) + ') rotate(' + (Math.sin(tGlobal*8)*2) + 'deg)';
+                  const p1 = easeOutBack(tScene / 0.45);
+                  document.getElementById('s1-main').style.transform = 'scale(' + p1 + ')';
+                  const lossVal = Math.min(4850, Math.floor(1200 + prog * 4500));
+                  document.getElementById('s1-big-num').innerText = '-$' + lossVal.toLocaleString();
+                  document.getElementById('b6-txt').innerText = (prog > 0.55) ? '[ فوضى! ]' : '[ ? ]';
+                  document.getElementById('b6').style.transform = (prog > 0.55) ? 'scale(1.06) rotate(-2deg)' : 'scale(1)';
                 }
                 else if (scIdx === 1) {
-                  const pHero = easeOutBack(tScene / 0.5);
-                  document.getElementById('s2-hero').style.transform = 'scale(' + pHero + ')';
-                  const pGrid = easeOutBack(Math.max(0, tScene - 0.5) / 0.5);
-                  document.getElementById('s2-grid').style.transform = 'translateY(' + ((1-pGrid)*80) + 'px) scale(' + Math.max(0.01, pGrid) + ')';
-                  document.getElementById('brain-word').style.transform = 'scale(' + (1 + Math.sin(tGlobal*8)*0.08) + ')';
+                  const p2 = easeOutBack(tScene / 0.45);
+                  document.getElementById('s2-core').style.transform = 'scale(' + p2 + ')';
+                  const pDiag = easeOutBack(Math.max(0, tScene - 0.35) / 0.45);
+                  document.getElementById('s2-diagram').style.transform = 'scale(' + Math.max(0.01, pDiag) + ')';
                 }
                 else if (scIdx === 2) {
+                  // محاكاة نقرة الإعلان ⬅ طيران الـ Webhook ⬅ سقوط كبسولات البيانات في شاشة السكرتيرة
+                  const clicked = (prog >= 0.26 && prog <= 0.34);
+                  document.getElementById('s3-submit-btn').style.background = clicked ? '#F05A28' : '#141519';
+                  document.getElementById('s3-submit-btn').style.transform = clicked ? 'scale(0.92)' : 'scale(1)';
+
+                  const pDb = easeOutBack((prog - 0.32) * 3.2);
+                  document.getElementById('s3-db').style.transform = 'scale(' + Math.max(0.01, pDb) + ')';
+                  document.getElementById('s3-db').style.opacity = Math.max(0, Math.min(1, (prog - 0.30) * 5));
+
+                  ['db-p1', 'db-p2', 'db-p3'].forEach(function(pid, idx) {
+                    const dp = easeOutBack((prog - (0.38 + idx * 0.06)) * 4.0);
+                    document.getElementById(pid).style.transform = 'translateY(' + ((1 - Math.min(1, dp)) * -35) + 'px) scale(' + Math.max(0.01, dp) + ')';
+                  });
+
+                  const pWa = easeOutBack((prog - 0.56) * 3.2);
+                  document.getElementById('s3-wa').style.transform = 'scale(' + Math.max(0.01, pWa) + ')';
+                  document.getElementById('s3-wa').style.opacity = Math.max(0, Math.min(1, (prog - 0.54) * 5));
+
                   if (prog < 0.38) {
-                    camScale = 1.08; camY = 110;
-                  } else if (prog < 0.65) {
-                    camScale = 1.05; camY = 0;
-                  } else {
-                    camScale = 1.08; camY = -110;
-                  }
-                  const beamH = Math.max(0, Math.min(100, ((prog - 0.32) / 0.25) * 100));
-                  document.getElementById('webhook-beam').style.height = beamH + '%';
-                  document.getElementById('s3-btn').style.transform = (prog >= 0.30 && prog <= 0.37) ? 'scale(0.91)' : 'scale(1)';
-
-                  const p2 = easeOutBack((prog - 0.42) * 3.2);
-                  document.getElementById('s3-step2').style.transform = 'scale(' + Math.max(0.01, p2) + ')';
-                  document.getElementById('s3-step2').style.opacity = Math.max(0, Math.min(1, (prog - 0.40)*5));
-
-                  const p3 = easeOutBack((prog - 0.62) * 3.2);
-                  document.getElementById('s3-step3').style.transform = 'scale(' + Math.max(0.01, p3) + ')';
-                  document.getElementById('s3-step3').style.opacity = Math.max(0, Math.min(1, (prog - 0.60)*5));
-
-                  if (prog < 0.42) {
-                    cursorLayer.style.display = 'block';
-                    const cp = Math.min(1, prog / 0.31);
-                    const cx = 680 - 460 * cp;
-                    const cy = 680 - 260 * cp;
-                    cursorArrow.setAttribute('transform', 'translate(' + cx + ', ' + cy + ')');
-                    if (prog >= 0.31 && prog <= 0.38) {
-                      clickRing.setAttribute('cx', cx); clickRing.setAttribute('cy', cy);
-                      clickRing.setAttribute('opacity', '0.9');
-                    } else {
-                      clickRing.setAttribute('opacity', '0');
-                    }
+                    cursorSvg.style.display = 'block';
+                    const cp = Math.min(1, prog / 0.26);
+                    const cx = 640 - 420 * cp;
+                    const cy = 540 - 210 * cp;
+                    cArrow.setAttribute('transform', 'translate(' + cx + ',' + cy + ')');
+                    cRing.setAttribute('cx', cx); cRing.setAttribute('cy', cy);
+                    cRing.setAttribute('opacity', clicked ? '1' : '0');
                   }
                 }
                 else if (scIdx === 3) {
-                  ['s4-c1', 's4-c2', 's4-c3'].forEach(function(id, idx) {
-                    const st = idx * 0.18;
-                    const p = easeOutBack((prog - st) * 3.0);
-                    const el = document.getElementById(id);
-                    const rx = (1 - Math.min(1, p)) * 55;
-                    el.style.transform = 'perspective(1000px) rotateX(' + rx + 'deg) scale(' + Math.max(0.01, p) + ')';
-                    el.style.opacity = Math.max(0, Math.min(1, (prog - st)*4));
+                  ['s4-w1', 's4-w2', 's4-w3'].forEach(function(wid, idx) {
+                    const st = idx * 0.16;
+                    const pw = easeOutBack((prog - st) * 3.0);
+                    const el = document.getElementById(wid);
+                    el.style.transform = 'translateX(' + ((1 - Math.min(1, pw)) * 80) + 'px) scale(' + Math.max(0.01, pw) + ')';
+                    el.style.opacity = Math.max(0, Math.min(1, (prog - st) * 4));
                   });
                 }
                 else if (scIdx === 4) {
-                  const p5 = easeOutBack(tScene / 0.5);
-                  document.getElementById('s5-card').style.transform = 'scale(' + p5 + ')';
-                  const clicked = (prog >= 0.52 && prog <= 0.62);
-                  document.getElementById('s5-cta').style.transform = clicked ? 'scale(0.95)' : 'scale(' + (1 + Math.sin(tGlobal*6)*0.02) + ')';
+                  const fullTxt = 'www.tekviyo.com';
+                  const charCount = Math.min(fullTxt.length, Math.floor(prog * fullTxt.length * 1.6));
+                  document.getElementById('s5-typed').innerText = fullTxt.substring(0, charCount);
+                  const clicked = (prog >= 0.58 && prog <= 0.68);
+                  document.getElementById('s5-send').style.transform = clicked ? 'scale(0.92)' : 'scale(1)';
 
-                  if (prog >= 0.35) {
-                    cursorLayer.style.display = 'block';
-                    const cp = Math.min(1, (prog - 0.35) / 0.18);
-                    const cx = 260 - 95 * cp;
-                    const cy = 1280 - 255 * cp;
-                    cursorArrow.setAttribute('transform', 'translate(' + cx + ', ' + cy + ')');
-                    if (clicked) {
-                      clickRing.setAttribute('cx', cx); clickRing.setAttribute('cy', cy);
-                      clickRing.setAttribute('opacity', '0.95');
-                    } else {
-                      clickRing.setAttribute('opacity', '0');
-                    }
+                  if (prog >= 0.40) {
+                    cursorSvg.style.display = 'block';
+                    const cp = Math.min(1, (prog - 0.40) / 0.18);
+                    const cx = 620 - 380 * cp;
+                    const cy = 980 - 210 * cp;
+                    cArrow.setAttribute('transform', 'translate(' + cx + ',' + cy + ')');
+                    cRing.setAttribute('cx', cx); cRing.setAttribute('cy', cy);
+                    cRing.setAttribute('opacity', clicked ? '1' : '0');
                   }
-                }
-
-                rig.style.transform = 'translateY(' + camY + 'px) scale(' + camScale + ') rotateX(' + rotX + 'deg) rotateY(' + rotY + 'deg)';
-
-                const words = SCENES[scIdx].words;
-                const activeWordIdx = Math.min(words.length - 1, Math.floor(prog * words.length * 1.08));
-                const capBox = document.getElementById('kinetic-captions');
-                const isLight = (scIdx === 3);
-                let htmlW = '';
-                for (let w = 0; w < words.length; w++) {
-                  const dist = w - activeWordIdx;
-                  let blur = 0, op = 1, sc = 1.0, bgW = 'transparent', colW = isLight ? '#0f172a' : '#f8fafc';
-                  if (dist === 0) {
-                    sc = 1.16;
-                    bgW = (scIdx === 0) ? '#ef4444' : (isLight ? '#0284c7' : '#10b981');
-                    colW = (scIdx === 0 || isLight) ? '#ffffff' : '#04130d';
-                  } else if (dist > 0) {
-                    blur = Math.min(10, dist * 3.5);
-                    op = Math.max(0.18, 0.65 - dist * 0.12);
-                  } else {
-                    op = 0.82;
-                  }
-                  htmlW += '<span class="k-word" style="filter:blur(' + blur + 'px);opacity:' + op + ';transform:scale(' + sc + ');background:' + bgW + ';color:' + colW + '">' + words[w] + '</span>';
-                }
-                capBox.innerHTML = htmlW;
-
-                const wipe = document.getElementById('wipe-layer');
-                if (tScene < 0.22 && scIdx > 0) {
-                  const wp = tScene / 0.22;
-                  wipe.style.transform = 'translateX(' + ((wp * 200) - 100) + '%)';
-                } else {
-                  wipe.style.transform = 'translateX(120%)';
                 }
               };
             </script>
           </body>
           </html>""".replace("__SCENES_JSON__", scenes_json)
 
-          Path("stage_2026.html").write_text(html_stage, encoding="utf-8")
+          Path("turkish_stage.html").write_text(html_stage, encoding="utf-8")
 
-          print("🎬 [3/4] رندر إطارات الجيل الجديد 2026 مباشرة عبر محرك Chromium...", flush=True)
+          print("🎬 [3/4] رندر الفيديو بالستايل التركي (60FPS Smooth Output)...", flush=True)
           fps = 24
           total_frames = int(total_dur * fps)
           s_starts = [0.0]
@@ -679,7 +683,7 @@ jobs:
               "-i", "final_audio.aac",
               "-vf", "fps=60",
               "-c:v", "libx264", "-preset", "superfast", "-crf", "16", "-pix_fmt", "yuv420p",
-              "-c:a", "copy", "-shortest", "TEKVIYO_2026_Edition.mp4"
+              "-c:a", "copy", "-shortest", "TEKVIYO_Turkish_Wireframe.mp4"
           ], stdin=subprocess.PIPE)
 
           qa_snapshots = {}
@@ -688,7 +692,7 @@ jobs:
           with sync_playwright() as p:
               browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
               page = browser.new_page(viewport={"width": 1080, "height": 1920})
-              page.goto(f"file://{os.path.abspath('stage_2026.html')}", wait_until="networkidle")
+              page.goto(f"file://{os.path.abspath('turkish_stage.html')}", wait_until="networkidle")
               page.wait_for_timeout(400)
 
               for i in range(total_frames):
@@ -704,7 +708,7 @@ jobs:
                   page.evaluate(f"window.renderFrame({sc_idx}, {prog_sc:.4f}, {t:.4f}, {t_sc:.4f}, {dur_sc:.4f})")
                   jpg_bytes = page.screenshot(type="jpeg", quality=94)
 
-                  if abs(prog_sc - 0.65) < 0.03 and sc_idx not in qa_snapshots:
+                  if abs(prog_sc - 0.68) < 0.03 and sc_idx not in qa_snapshots:
                       Path(f"qa_{sc_idx}.jpg").write_bytes(jpg_bytes)
                       qa_snapshots[sc_idx] = f"qa_{sc_idx}.jpg"
 
@@ -714,7 +718,7 @@ jobs:
                       break
 
                   if i % 120 == 0 or i == total_frames - 1:
-                      print(f"⚡ رندر 2026 الحي: {i+1}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
+                      print(f"⚡ تقدم الرندر التركي: {i+1}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
 
               browser.close()
 
@@ -724,22 +728,22 @@ jobs:
               pass
           ffmpeg_proc.wait()
 
-          print("🔍 [4/4] تجميع لوحة الفحص الذاتي لنسخة 2026...", flush=True)
-          sheet = Image.new("RGB", (1800, 640), (5, 8, 17))
+          print("🔍 [4/4] تجميع لوحة الفحص البصري للستايل التركي...", flush=True)
+          sheet = Image.new("RGB", (1800, 640), (247, 247, 245))
           for k in range(5):
               if k in qa_snapshots:
                   im = Image.open(qa_snapshots[k]).resize((360, 640))
                   sheet.paste(im, (k * 360, 0))
-          sheet.save("QA_2026_Inspection.jpg", quality=94)
-          print("✅ اكتمل إنتاج فيديو TEKVIYO 2026 بنجاح ساحق!", flush=True)
+          sheet.save("QA_Turkish_Style_Sheet.jpg", quality=94)
+          print("✅ اكتمل إنتاج فيديو TEKVIYO بالستايل التركي بنجاح!", flush=True)
           EOF
-          python3 -u build_2026_studio.py
+          python3 -u build_turkish_style.py
 
-      - name: 📦 4. رفع فيديو نسخة 2026 ولوحة الفحص
+      - name: 📦 4. رفع فيديو الستايل التركي ولوحة الفحص
         uses: actions/upload-artifact@v4
         with:
-          name: 🚀-TEKVIYO-2026-Kinetic-Edition
+          name: 🎬-TEKVIYO-Turkish-Wireframe-Reel
           path: |
-            TEKVIYO_2026_Edition.mp4
-            QA_2026_Inspection.jpg
+            TEKVIYO_Turkish_Wireframe.mp4
+            QA_Turkish_Style_Sheet.jpg
           retention-days: 30
