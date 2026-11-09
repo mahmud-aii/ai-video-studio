@@ -702,9 +702,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: 🚀-TEKVIYO-2.0-Launch-Reel
-          path: |TEKVIYO_2_Launch_Reel.mp4
-            QA_Inspection_Sheet.jpg
-          retention-days: 30
+          path: |
             TEKVIYO_2_Launch_Reel.mp4
             QA_Inspection_Sheet.jpg
           retention-days: 30
