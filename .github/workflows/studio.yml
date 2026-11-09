@@ -1,355 +1,710 @@
-name: 🎬 Pro PiP Studio (Sync Cut + Natural BG + 6 Scenes)
+name: 🚀 TEKVIYO 2.0 Official Launch Video Studio
 
 on:
   push:
     branches: [ main ]
-  release:
-    types: [ published, edited ]
   workflow_dispatch:
+    inputs:
+      voice_name:
+        description: 'شخصية المعلق في Gemini 3.8 TTS (Charon = فخم / Fenrir = وثائقي واثق)'
+        required: false
+        default: 'Charon'
 
 jobs:
-  pro_pip_studio:
+  render_tekviyo_launch:
     runs-on: ubuntu-latest
     steps:
       - name: 📥 1. تجهيز السيرفر السحابي
         uses: actions/checkout@v4
 
-      - name: ⚙️ 2. تثبيت محركات المونتاج والرندر السريع (بدون عزل مشوه)
+      - name: ⚙️ 2. تثبيت محركات الجرافيك والصوتيات
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
-          pip install -q playwright pillow numpy opencv-python-headless requests
+          pip install -q playwright edge-tts pillow numpy requests
           playwright install chromium
 
-      - name: 🚀 3. قص الصمت والخطأ بتزامن 100% + رندر الإطار الأنيق والمشاهد الستة
+      - name: 🎬 3. بناء المشاهد الخمسة وهندسة الصوت المؤتمتة (TEKVIYO 2.0)
         env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          VOICE_PERSONA: ${{ github.event.inputs.voice_name || 'Charon' }}
         run: |
-          cat << 'EOF' > pro_studio.py
-          import os, re, glob, subprocess, time, math, urllib.request
+          cat << 'EOF' > build_tekviyo.py
+          import os, subprocess, time, wave, math, base64
           import numpy as np
-          import cv2, requests
+          import requests
           from pathlib import Path
           from PIL import Image, ImageDraw
           from playwright.sync_api import sync_playwright
 
-          os.makedirs("ui_layers", exist_ok=True)
-          os.makedirs("assets", exist_ok=True)
-          input_video = None
+          os.makedirs("ui", exist_ok=True)
+          os.makedirs("audio", exist_ok=True)
 
-          # 1. سحب الفيديو الخام من Releases
-          repo = os.environ.get("GH_REPO", "")
-          token = os.environ.get("GH_TOKEN", "")
-          headers = {"Authorization": f"token {token}"} if token else {}
-          try:
-              r = requests.get(f"https://api.github.com/repos/{repo}/releases", headers=headers, timeout=15)
-              if r.status_code == 200:
-                  for rel in r.json():
-                      for a in rel.get("assets", []):
-                          if a.get("name", "").lower().endswith((".mp4", ".mov", ".mkv")):
-                              urllib.request.urlretrieve(a["browser_download_url"], "raw_input.mp4")
-                              input_video = "raw_input.mp4"
-                              break
-                      if input_video: break
-          except Exception as e:
-              print("Releases check:", e, flush=True)
-
-          if not input_video or not os.path.exists(input_video):
-              vids = [f for f in glob.glob("*.mp4") if "Pro_" not in f and "sync_" not in f]
-              if vids: input_video = vids[0]
-          if not input_video:
-              raise FileNotFoundError("يرجى رفع الفيديو في قسم Releases أولاً")
-
-          # 2. تحميل الصور الحقيقية للمشاهد الستة
-          imgs = {
-              "p1": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=85",
-              "p2": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=300&q=85",
-              "p3": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=300&q=85",
-              "p4": "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=300&q=85"
-          }
-          for k, u in imgs.items():
-              try:
-                  req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
-                  Path(f"assets/{k}.jpg").write_bytes(urllib.request.urlopen(req, timeout=10).read())
-              except Exception:
-                  Image.new("RGB", (300, 300), (30, 41, 59)).save(f"assets/{k}.jpg")
-
-          p1_u, p2_u, p3_u, p4_u = [Path(f"assets/{k}.jpg").resolve().as_uri() for k in ("p1", "p2", "p3", "p4")]
-
-          raw_dur = float(subprocess.check_output([
-              "ffprobe", "-v", "error", "-show_entries", "format=duration",
-              "-of", "default=noprint_wrappers=1:nokey=1", input_video
-          ]).decode().strip())
-
-          # 3. قص الصمت ومقطع الخطأ والإعادة من الفيديو والصوت معاً (تزامن حركة شفاه 100%)
-          print(f"✂️ [1/4] تحليل وقص الصمت والخطأ بتزامن كامل (المدة الأصلية: {raw_dur:.2f}s)...", flush=True)
-          sd_log = subprocess.run([
-              "ffmpeg", "-hide_banner", "-i", input_video,
-              "-af", "silencedetect=noise=-30dB:d=0.40", "-f", "null", "-"
-          ], stderr=subprocess.PIPE, text=True).stderr
-
-          s_starts = [float(x) for x in re.findall(r"silence_start:\s*([0-9.]+)", sd_log)]
-          s_ends = [float(x) for x in re.findall(r"silence_end:\s*([0-9.]+)", sd_log)]
-
-          raw_segments = []
-          curr = 0.0
-          for st, en in zip(s_starts, s_ends):
-              if st - curr > 0.35:
-                  raw_segments.append((max(0.0, curr - 0.06), min(raw_dur, st + 0.06)))
-              curr = en
-          if raw_dur - curr > 0.35:
-              raw_segments.append((max(0.0, curr - 0.06), raw_dur))
-
-          # في فيديو الخلفية البيضاء: حذف مقاطع الخطأ ("كيف راح.. خلينا نشوف.. أخطأت راح أعيد الجملة") والإبقاء على الجملة النهائية الصحيحة
-          keep_segments = []
-          if raw_dur > 20.0 and len(raw_segments) >= 3:
-              for idx_s, (seg_s, seg_e) in enumerate(raw_segments):
-                  # المقاطع التي تقع في منطقة التجربة والخطأ (بين الثانية 20.2 واللقطة الأخيرة) يتم تخطيها بالكامل
-                  if idx_s == len(raw_segments) - 1:
-                      keep_segments.append((seg_s, min(seg_e, raw_dur - 0.15)))
-                  elif seg_s < 20.2:
-                      keep_segments.append((seg_s, min(seg_e, 20.2)))
-          else:
-              keep_segments = [(0.0, min(16.4, raw_dur))]
-
-          print("✅ المقاطع المعتمدة بعد حذف الصمت والخطأ:", keep_segments, flush=True)
-
-          # بناء فلتر قص متزامن للفيديو والصوت معاً (يمنع أي فرق بين الصوت وحركة الفم)
-          fc_parts = []
-          concat_inputs = ""
-          for i, (st, en) in enumerate(keep_segments):
-              fc_parts.append(f"[0:v]trim=start={st:.3f}:end={en:.3f},setpts=PTS-STARTPTS,scale=840:920:force_original_aspect_ratio=increase,crop=840:920,fps=30,eq=contrast=1.06:saturation=1.10[v{i}];")
-              fc_parts.append(f"[0:a]atrim=start={st:.3f}:end={en:.3f},asetpts=PTS-STARTPTS[a{i}];")
-              concat_inputs += f"[v{i}][a{i}]"
-          fc_parts.append(f"{concat_inputs}concat=n={len(keep_segments)}:v=1:a=1[outv][outa]")
-
-          subprocess.run([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", input_video,
-              "-filter_complex", "".join(fc_parts),
-              "-map", "[outv]", "-map", "[outa]",
-              "-c:v", "libx264", "-preset", "ultrafast", "-crf", "16",
-              "-c:a", "aac", "-b:a", "320k", "-ar", "48000", "-ac", "2",
-              "sync_cut.mp4"
-          ], check=True)
-
-          cut_dur = float(subprocess.check_output([
-              "ffprobe", "-v", "error", "-show_entries", "format=duration",
-              "-of", "default=noprint_wrappers=1:nokey=1", "sync_cut.mp4"
-          ]).decode().strip())
-          print(f"✅ المدة الصافية بعد القص المتزامن: {cut_dur:.2f} ثانية", flush=True)
-
-          # 4. هندسة الصوت وإضافة مؤثرات الانتقالات (Whoosh + Pop)
-          subprocess.run([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "sync_cut.mp4",
-              "-af", "highpass=f=80,equalizer=f=130:width_type=o:width=2:g=3.5,equalizer=f=3800:width_type=o:width=2:g=2.5,acompressor=threshold=-18dB:ratio=3:makeup=4dB",
-              "-ar", "48000", "-ac", "2", "voice.wav"
-          ], check=True)
-
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.30:c=pink:r=48000:a=0.38", "-af", "bandpass=f=900:width_type=h:w=600,afade=t=in:st=0:d=0.06,afade=t=out:st=0.14:d=0.16", "-ar", "48000", "-ac", "2", "whoosh.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.50*sin(2*PI*(520+600*t)*t)*exp(-18*t)':s=48000:d=0.22", "-ar", "48000", "-ac", "2", "pop.wav"], check=True)
-
-          # حساب توقيت الجمل الست نسبةً للمدة الصافية لضمان التطابق التام حتى آخر ثانية
-          r_scale = cut_dur / 21.0
-          t_marks = [0.0, 4.6*r_scale, 7.6*r_scale, 11.4*r_scale, 14.5*r_scale, 18.2*r_scale, cut_dur + 0.5]
-
-          d1, d2, d3, d4, d5 = [int(t_marks[k]*1000) for k in range(1, 6)]
-          subprocess.run([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-              "-i", "voice.wav", "-i", "whoosh.wav", "-i", "pop.wav",
-              "-filter_complex",
-              f"[1:a]adelay=150|150[w0];[2:a]adelay={d1}|{d1}[w1];[1:a]adelay={d2}|{d2}[w2];"
-              f"[2:a]adelay={d3}|{d3}[w3];[1:a]adelay={d4}|{d4}[w4];[2:a]adelay={d5}|{d5}[w5];"
-              "[0:a][w0][w1][w2][w3][w4][w5]amix=inputs=7:duration=first:weights='2.3 0.8 1.0 0.8 1.1 0.8 1.1'[a]",
-              "-map", "[a]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"
-          ], check=True)
-
-          # 5. تصميم المشاهد العلوية الستة + الكابشن الحرفي المطابق لكلام محمود
-          print("🎨 [2/4] بناء المشاهد التفاعلية الستة والكابشن الحرفي...", flush=True)
-          scenes_info = [
-              ("0", "🎨 01 • معالجة الإضاءة والألوان", "تجاوز مشكلة الخلفية البيج السابقة", "إطار متحدث سينمائي يحفظ تفاصيل الشعر واليد 100%", p1_u, "#facc15",
-               "الفيديو الماضي كان عملياً على خلفية", "بتشبه لون شعري ولون بشرتي 🎨"),
-              ("1", "⚪ 02 • استوديو الإطار الثابت الأنيق", "خلفية بيضاء نظيفة بدون تشوه عزل", "حواف دائرية ناعمة على غرار القنوات الاحترافية الكبرى", p2_u, "#38bdf8",
-               "وأنا عم حاول هلق إني أصور", "على خلفية بيضاء صافية ⚪"),
-              ("2", "✂️ 03 • قص الصمت المتزامن (Video + Audio)", "تم حذف الفاصل الصامت مع حفظ التزامن!", "قص الفيديو والصوت معاً بنفس الجزء من الثانية", p3_u, "#10b981",
-               "وأنا أصلاً حطيت هلق فاصل صامت", "لأشوفك إذا رح تعرف تقصه أو لا ✂️"),
-              ("3", "👇 04 • تمركز الكابشن في الأسفل", "الكابشن مثبت تماماً حيث تشير بيدك!", "تزامن فوري مع حركة الشفاه وإشارات اليد", p4_u, "#f97316",
-               "فأنا بدي إياك تحط الكابشن", "تماماً هون بأسفل الشاشة! 👇"),
-              ("4", "🔝 05 • المسرح التفاعلي العلوي", "بطاقات وصور تتغير مع كل فكرة تنطقها", "6 مشاهد علوية مخصصة تتبدل تلقائياً حسب سياق كلامك", p1_u, "#38bdf8",
-               "ولا تنسى النص الفوقاني", "تحط فيه ما يناسب الكلام 🔝"),
-              ("5", "✅ 06 • فلترة الأخطاء وإعادة الجمل", "تم حذف مقطع الخطأ والإعادة بالكامل!", "الانتقال مباشرة للجملة الصحيحة النهائية بدون لعثمة", p2_u, "#10b981",
-               "وخلينا نشوف هلق..", "شو راح يطلع معك! 🔥")
+          # نصوص المشاهد الخمسة مشكولة بالكامل لضمان نطق B2B فخم وسليم 100%
+          scenes_script = [
+              {
+                  "id": 1,
+                  "step": "01/05 • الفوضى اليدوية",
+                  "voice": "تَصْرِفُ آلافَ الدُّولَارَاتِ عَلَى الإِعْلَانَات... لَكِنَّ العُمَلَاءَ يَضِيعُونَ فِي زَحْمَةِ رَسَائِلِ الوَاتْسَاب، وَمُوَظَّفُوكَ غَارِقُونَ فِي الإِدْخَالِ اليَدَوِيِّ وَالفَوْضَى؟",
+                  "cap1": "تصرف آلاف الدولارات على الإعلانات..",
+                  "cap2": "والعملاء يضيعون في زحمة الواتساب والفوضى؟ ⚠️"
+              },
+              {
+                  "id": 2,
+                  "step": "02/05 • تغيير قواعد اللعبة",
+                  "voice": "التَّسْوِيقُ وَحْدَهُ لَمْ يَعُدْ يَكْفِي! فِي تِكْ فِيو، نَحْنُ لَا نُصَمِّمُ لَكَ إِعْلَانَاتٍ فَقَط... نَحْنُ نَبْنِي عَقْلَ أَعْمَالِكَ.",
+                  "cap1": "التسويق وحده لم يعد يكفي!",
+                  "cap2": "في TEKVIYO.. نحن نبني (عقل) أعمالك 🧠"
+              },
+              {
+                  "id": 3,
+                  "step": "03/05 • السحر التقني Webhooks",
+                  "voice": "اِكْتَشِفْ قُوَّةَ الرَّبْطِ الذَّكِيّ! إِعْلَانَاتُكَ الآنَ تَصُبُّ مُبَاشَرَةً فِي نِظَامِكَ الإِدَارِيِّ لَحْظِيًّا. العَمِيلُ يَضْغَطُ عَلَى الإِعْلَان، بَيَانَاتُهُ تَظْهَرُ فِي شَاشَةِ سِكْرِتِيرَتِكَ، وَرِسَالَةُ التَّأْكِيدِ تَصِلُهُ أُوتُومَاتِيكِيًّا. لَا تَدَخُّلَ بَشَرِيّ، وَلَا عُمَلَاءَ ضَائِعِين.",
+                  "cap1": "العميل يضغط الإعلان ⬅ يظهر بشاشة السكرتيرة",
+                  "cap2": "ورسالة تأكيد الموعد تصله بالواتساب لحظياً! ⚡"
+              },
+              {
+                  "id": 4,
+                  "step": "04/05 • الأنظمة السحابية",
+                  "voice": "سَوَاءٌ كُنْتَ عِيَادَةً طِبِّيَّة، مُؤَسَّسَةً عَقَارِيَّة، أَوْ مَرْكَزَ أَعْمَال.. أَنْظِمَتُنَا السَّحَابِيَّةُ المُخَصَّصَةُ تَمْنَحُكَ السَّيْطَرَةَ الكَامِلَةَ عَلَى مُوَظَّفِيك، مَبِيعَاتِك، وَنُمُوِّك، مِنْ أَيِّ مَكَانٍ فِي العَالَم.",
+                  "cap1": "عيادات طبية • شركات عقارية • مراكز أعمال",
+                  "cap2": "سيطرة سحابية كاملة من أي مكان في العالم 🌐"
+              },
+              {
+                  "id": 5,
+                  "step": "05/05 • انطلق للمستقبل",
+                  "voice": "لَا تَكْتَفِ بِالوَاجِهَة.. اِبْنِ مَنْظُومَةً مُتَكَامِلَةً لَا تُقْهَر. تَوَاصَلْ مَعَ تِكْ فِيو اليَوْم، وَاحْجِزْ اسْتِشَارَتَكَ التِّقْنِيَّةَ لِنَقْلِ أَعْمَالِكَ لِلْمُسْتَقْبَل.",
+                  "cap1": "لا تكتفِ بالواجهة.. ابنِ منظومة لا تُقهر",
+                  "cap2": "تواصل مع TEKVIYO واحجز استشارتك اليوم 🚀"
+              }
           ]
 
-          top_html = ""
-          cap_html = ""
-          for sid, tag, tit, sub, uri, col, c1, c2 in scenes_info:
-              top_html += f"""
-              <div id="top{sid}" class="tcard" style="border-right-color:{col}">
-                <img class="timg" style="border-color:{col}" src="{uri}"/>
-                <div class="tbody">
-                  <span class="ttag" style="color:{col}">{tag}</span>
-                  <div class="ttit">{tit}</div>
-                  <div class="tsub">{sub}</div>
-                </div>
-              </div>"""
-              cap_html += f"""
-              <div id="cap{sid}" class="bcap" style="border-bottom-color:{col}">
-                <div class="c1">{c1}</div>
-                <div class="c2" style="color:{col}">{c2}</div>
+          gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
+          persona = os.environ.get("VOICE_PERSONA", "Charon").strip()
+
+          def generate_scene_voice(idx, text_ar, out_wav):
+              used_gem = False
+              if gemini_key:
+                  for m_id in ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts", "gemini-2.5-flash-preview-tts"]:
+                      try:
+                          prompt = f"اقرأ هذا النص الإعلاني بنبرة معلق شركات B2B واثق وهادئ وفخم يبعث على الطمأنينة:\n{text_ar}"
+                          r = requests.post(
+                              f"https://generativelanguage.googleapis.com/v1beta/models/{m_id}:generateContent?key={gemini_key}",
+                              json={
+                                  "contents": [{"parts": [{"text": prompt}]}],
+                                  "generationConfig": {
+                                      "responseModalities": ["AUDIO"],
+                                      "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": persona}}}
+                                  }
+                              },
+                              timeout=35
+                          )
+                          if r.status_code == 200:
+                              part = r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
+                              raw_b = base64.b64decode(part["data"])
+                              if "wav" in part.get("mimeType", "") or raw_b[:4] == b"RIFF":
+                                  Path(f"audio/raw_{idx}.wav").write_bytes(raw_b)
+                              else:
+                                  Path(f"audio/raw_{idx}.pcm").write_bytes(raw_b)
+                                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "s16le", "-ar", "24000", "-ac", "1", "-i", f"audio/raw_{idx}.pcm", f"audio/raw_{idx}.wav"], check=True)
+                              used_gem = True
+                              print(f"🎙️ المشهد {idx}: تم توليد الصوت البشري عبر {m_id}", flush=True)
+                              break
+                      except Exception:
+                          pass
+              if not used_gem:
+                  subprocess.run(["python3", "-m", "edge_tts", "--voice", "ar-SA-HamedNeural", "--rate=+2%", "--pitch=+0Hz", "--text", text_ar, "--write-media", f"audio/raw_{idx}.mp3"], check=True)
+                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", f"audio/raw_{idx}.mp3", f"audio/raw_{idx}.wav"], check=True)
+                  print(f"🎙️ المشهد {idx}: تم توليد الصوت الإذاعي المشكول", flush=True)
+
+              # ماسترينغ الصوت + إضافة 0.65 ثانية راحة في نهاية المشهد
+              subprocess.run([
+                  "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", f"audio/raw_{idx}.wav",
+                  "-af", "highpass=f=75,equalizer=f=120:width_type=o:width=2:g=3.5,equalizer=f=3800:width_type=o:width=2:g=2.5,acompressor=threshold=-16dB:ratio=2.5:makeup=3dB,apad=pad_dur=0.65",
+                  "-ar", "48000", "-ac", "2", out_wav
+              ], check=True)
+
+          print("🔊 [1/5] توليد التعليق الصوتي والمؤثرات الخاصة بكل مشهد...", flush=True)
+
+          # توليد المؤثرات الصوتية الأساسية (Clicks, Pings, Whooshes, Alarm, Webhook Zap)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.32:c=pink:r=48000:a=0.40", "-af", "bandpass=f=850:width_type=h:w=550,afade=t=in:st=0:d=0.06,afade=t=out:st=0.14:d=0.18", "-ar", "48000", "-ac", "2", "audio/whoosh.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.60*sin(2*PI*1400*t)*exp(-45*t)+0.35*sin(2*PI*2800*t)*exp(-60*t)':s=48000:d=0.12", "-ar", "48000", "-ac", "2", "audio/click.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.45*sin(2*PI*880*t)*exp(-8*t)+0.35*sin(2*PI*1320*t)*exp(-6*t)':s=48000:d=0.55", "-ar", "48000", "-ac", "2", "audio/ping.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.35*sin(2*PI*(320+900*t)*t)*exp(-5*t)':s=48000:d=0.45", "-ar", "48000", "-ac", "2", "audio/zap.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.30*sin(2*PI*780*t)*(1+sin(2*PI*14*t))/2*exp(-2.2*t)':s=48000:d=0.90", "-ar", "48000", "-ac", "2", "audio/ring.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.50*sin(2*PI*(150-80*t)*t)*exp(-3.5*t)+0.25*sin(2*PI*528*t)*exp(-4*t)':s=48000:d=0.80", "-ar", "48000", "-ac", "2", "audio/shift.wav"], check=True)
+
+          scene_durations = []
+          for sc in scenes_script:
+              sid = sc["id"]
+              v_wav = f"audio/v_{sid}.wav"
+              generate_scene_voice(sid, sc["voice"], v_wav)
+              with wave.open(v_wav, "rb") as wf:
+                  dur = wf.getnframes() / float(wf.getframerate())
+              scene_durations.append(dur)
+
+              # دمج المؤثرات الصوتية المخصصة لكل مشهد بدقة
+              s_out = f"audio/scene_{sid}_mix.wav"
+              if sid == 1:
+                  # رنين هاتف مزعج + تطاير أوراق
+                  subprocess.run([
+                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                      "-i", v_wav, "-i", "audio/ring.wav", "-i", "audio/whoosh.wav",
+                      "-filter_complex", "[1:a]adelay=400|400[r1];[2:a]adelay=1800|1800[w1];[1:a]adelay=3400|3400[r2];[0:a][r1][w1][r2]amix=inputs=4:duration=first:weights='2.2 0.7 0.9 0.7'[a]",
+                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
+                  ], check=True)
+              elif sid == 2:
+                  # توقف الفوضى + إشراقة شعار TEKVIYO وبناء النظام
+                  subprocess.run([
+                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                      "-i", v_wav, "-i", "audio/shift.wav", "-i", "audio/ping.wav",
+                      "-filter_complex", "[1:a]adelay=50|50[sh];[2:a]adelay=2400|2400[pg];[0:a][sh][pg]amix=inputs=3:duration=first:weights='2.2 1.1 0.9'[a]",
+                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
+                  ], check=True)
+              elif sid == 3:
+                  # نقرة الماوس + طيران الـ Webhook + إشعار السكرتيرة + رسالة الواتساب
+                  t_click = int(dur * 0.28 * 1000)
+                  t_zap   = int(dur * 0.34 * 1000)
+                  t_ping1 = int(dur * 0.52 * 1000)
+                  t_ping2 = int(dur * 0.70 * 1000)
+                  subprocess.run([
+                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                      "-i", v_wav, "-i", "audio/click.wav", "-i", "audio/zap.wav", "-i", "audio/ping.wav",
+                      "-filter_complex",
+                      f"[1:a]adelay={t_click}|{t_click}[c];[2:a]adelay={t_zap}|{t_zap}[z];[3:a]adelay={t_ping1}|{t_ping1}[p1];[3:a]adelay={t_ping2}|{t_ping2}[p2];"
+                      "[0:a][c][z][p1][p2]amix=inputs=5:duration=first:weights='2.2 1.3 1.1 1.0 1.0'[a]",
+                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
+                  ], check=True)
+              elif sid == 4:
+                  # ظهور الشاشات الثلاث والشارات الأربع
+                  subprocess.run([
+                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                      "-i", v_wav, "-i", "audio/whoosh.wav", "-i", "audio/click.wav",
+                      "-filter_complex", "[1:a]adelay=200|200[w1];[1:a]adelay=1400|1400[w2];[1:a]adelay=2600|2600[w3];[2:a]adelay=4200|4200[c1];[0:a][w1][w2][w3][c1]amix=inputs=5:duration=first:weights='2.2 0.9 0.9 0.9 1.0'[a]",
+                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
+                  ], check=True)
+              else:
+                  # المشهد الخامس: الخاتمة الملهمة ونقرة حجز الاستشارة
+                  t_end_ping = int(max(1.0, dur - 1.2) * 1000)
+                  subprocess.run([
+                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                      "-i", v_wav, "-i", "audio/shift.wav", "-i", "audio/click.wav", "-i", "audio/ping.wav",
+                      "-filter_complex", f"[1:a]adelay=100|100[s];[2:a]adelay=3200|3200[c];[3:a]adelay={t_end_ping}|{t_end_ping}[p];[0:a][s][c][p]amix=inputs=4:duration=first:weights='2.2 0.9 1.2 1.2'[a]",
+                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
+                  ], check=True)
+
+          total_dur = sum(scene_durations)
+          print(f"✅ مدد المشاهد الخمسة: {[round(d,2) for d in scene_durations]} (الإجمالي: {total_dur:.2f} ثانية)", flush=True)
+
+          # دمج صوت المشاهد الخمسة مع خلفية موسيقية تقنية هادئة (Ambient B2B Pad)
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
+              "-i", f"aevalsrc='0.020*sin(2*PI*65*t)+0.015*sin(2*PI*98*t)+0.010*sin(2*PI*147*t)':s=48000:d={total_dur}",
+              "-af", f"afade=t=in:st=0:d=1.5,afade=t=out:st={max(0.5, total_dur-2.0)}:d=2.0",
+              "-ar", "48000", "-ac", "2", "audio/ambient.wav"
+          ], check=True)
+
+          concat_in = []
+          for k in range(1, 6):
+              concat_in.extend(["-i", f"audio/scene_{k}_mix.wav"])
+          subprocess.run(
+              ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"] + concat_in +
+              ["-filter_complex", "[0:a][1:a][2:a][3:a][4:a]concat=n=5:v=0:a=1[vo]", "-map", "[vo]", "audio/all_vo.wav"],
+              check=True
+          )
+          subprocess.run([
+              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+              "-i", "audio/all_vo.wav", "-i", "audio/ambient.wav",
+              "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first:weights='1.8 0.45'[aout]",
+              "-map", "[aout]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"
+          ], check=True)
+
+          # 2. بناء الطبقات البصرية عالية الدقة للمشاهد الخمسة عبر HTML5/CSS3
+          print("🎨 [2/5] تصميم كروت الـ Micro-UI، لوحات التحكم، والكلمات التفاعلية...", flush=True)
+          caps_html = ""
+          for sc in scenes_script:
+              sid = sc["id"]
+              col = "#ef4444" if sid == 1 else ("#38bdf8" if sid in (2, 4) else "#10b981")
+              caps_html += f"""
+              <div id="cap_{sid}_a" class="cap-bar" style="border-bottom-color:{col}">
+                <div class="cap-txt">{sc['cap1']}</div>
+              </div>
+              <div id="cap_{sid}_b" class="cap-bar" style="border-bottom-color:{col}">
+                <div class="cap-txt hl" style="color:{col}">{sc['cap2']}</div>
               </div>"""
 
-          html = f"""<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
-          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&display=swap" rel="stylesheet">
+          html_ui = f"""<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
           <style>
-            * {{ box-sizing:border-box; margin:0; padding:0; }}
-            body {{ background:transparent; font-family:'Cairo',sans-serif; color:#fff; width:1080px; padding:20px; }}
-            .tcard {{
-              width:960px; padding:28px 34px; margin-bottom:30px;
-              background:linear-gradient(135deg, rgba(20,24,38,0.98), rgba(10,12,20,0.99));
-              border:2.5px solid rgba(255,255,255,0.16); border-right:14px solid #facc15;
-              border-radius:38px; display:flex; align-items:center; gap:28px;
-              box-shadow:0 25px 50px rgba(0,0,0,0.85);
-            }}
-            .timg {{ width:150px; height:150px; border-radius:26px; object-fit:cover; border:3.5px solid #facc15; flex-shrink:0; }}
-            .tbody {{ flex:1; }}
-            .ttag {{ font-size:22px; font-weight:900; display:block; margin-bottom:8px; }}
-            .ttit {{ font-size:38px; font-weight:900; color:#fff; line-height:1.22; margin-bottom:10px; }}
-            .tsub {{ font-size:25px; font-weight:700; color:#cbd5e1; line-height:1.35; }}
-            .bcap {{
-              width:960px; padding:20px 36px; margin-bottom:25px;
-              background:rgba(9, 11, 18, 0.96);
-              border:2.5px solid rgba(255,255,255,0.22); border-bottom:10px solid #facc15;
-              border-radius:32px; text-align:center;
-              box-shadow:0 22px 45px rgba(0,0,0,0.92);
-            }}
-            .c1 {{ font-size:35px; font-weight:800; color:#f8fafc; line-height:1.25; }}
-            .c2 {{ font-size:43px; font-weight:900; color:#facc15; line-height:1.3; }}
-          </style></head><body>{top_html}{cap_html}</body></html>"""
+            * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+            body {{ background: transparent; font-family: 'Cairo', sans-serif; color: #fff; width: 1080px; padding: 25px; }}
+            .blk {{ margin-bottom: 35px; }}
 
-          Path("ui.html").write_text(html, encoding="utf-8")
-          all_ids = [f"top{k}" for k in range(6)] + [f"cap{k}" for k in range(6)]
+            /* المشهد 1: الفوضى */
+            #s1_title {{ width: 960px; text-align: center; padding: 20px; }}
+            .h-small {{ font-size: 40px; font-weight: 800; color: #fca5a5; }}
+            .h-big {{ font-size: 62px; font-weight: 900; color: #fff; line-height: 1.2; }}
+            .red-pill {{ display: inline-block; background: #ef4444; color: #fff; padding: 4px 24px; border-radius: 20px; }}
+
+            .chaos-card {{
+              width: 460px; background: linear-gradient(145deg, #1f1218, #12090d);
+              border: 2.5px solid #ef4444; border-radius: 32px; padding: 26px;
+              box-shadow: 0 20px 45px rgba(0,0,0,0.85);
+            }}
+            .chaos-card.wa {{ border-color: #f97316; background: linear-gradient(145deg, #1e1610, #110c08); }}
+            .ch-tag {{ font-size: 21px; font-weight: 900; color: #f87171; margin-bottom: 10px; display: block; }}
+            .ch-num {{ font-size: 54px; font-weight: 900; color: #ef4444; font-family: 'JetBrains Mono', monospace; }}
+            .ch-sub {{ font-size: 24px; font-weight: 700; color: #fecaca; margin-top: 8px; }}
+            .msg-row {{ background: rgba(255,255,255,0.06); border-right: 5px solid #f97316; padding: 10px 16px; border-radius: 12px; margin-top: 10px; font-size: 21px; font-weight: 700; color: #fed7aa; }}
+
+            #s1_paper {{
+              width: 950px; background: #181216; border: 2.5px dashed #f87171;
+              border-radius: 28px; padding: 22px 32px; display: flex; align-items: center; justify-content: space-between;
+            }}
+
+            /* المشهد 2: عقل أعمالك TEKVIYO */
+            #s2_logo {{
+              width: 760px; background: linear-gradient(135deg, rgba(14,25,45,0.96), rgba(6,11,22,0.98));
+              border: 3px solid #38bdf8; border-radius: 40px; padding: 34px 44px; text-align: center;
+              box-shadow: 0 25px 60px rgba(56,189,248,0.28);
+            }}
+            .tk-brand {{ font-size: 80px; font-weight: 900; color: #fff; font-family: 'JetBrains Mono', monospace; letter-spacing: 3px; }}
+            .tk-brand span {{ color: #38bdf8; }}
+            .tk-tag {{ font-size: 30px; font-weight: 800; color: #4ade80; margin-top: 8px; }}
+
+            #s2_dash {{
+              width: 960px; background: rgba(11,18,32,0.95); border: 2px solid rgba(56,189,248,0.45);
+              border-radius: 34px; padding: 28px 34px;
+            }}
+            .dash-top {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 14px; }}
+            .dash-grid {{ display: flex; gap: 20px; }}
+            .d-box {{ flex: 1; background: rgba(20,32,54,0.9); border: 1.5px solid rgba(74,222,128,0.4); border-radius: 22px; padding: 18px; text-align: center; }}
+            .d-val {{ font-size: 38px; font-weight: 900; color: #4ade80; font-family: 'JetBrains Mono', monospace; }}
+            .d-lbl {{ font-size: 22px; font-weight: 800; color: #e2e8f0; margin-top: 4px; }}
+
+            /* المشهد 3: السحر التقني Webhooks */
+            #s3_ad {{
+              width: 920px; background: #111827; border: 2.5px solid #38bdf8;
+              border-radius: 32px; padding: 24px 32px; display: flex; align-items: center; justify-content: space-between;
+            }}
+            .ad-btn {{
+              background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff;
+              padding: 14px 34px; border-radius: 20px; font-size: 28px; font-weight: 900;
+              box-shadow: 0 10px 25px rgba(56,189,248,0.4);
+            }}
+            #s3_popup {{
+              width: 920px; background: linear-gradient(135deg, #06281e, #051812);
+              border: 3px solid #10b981; border-radius: 32px; padding: 24px 32px;
+              display: flex; align-items: center; justify-content: space-between;
+              box-shadow: 0 20px 45px rgba(16,185,129,0.3);
+            }}
+            .pop-badge {{ background: #10b981; color: #051812; font-size: 22px; font-weight: 900; padding: 6px 18px; border-radius: 14px; }}
+            #s3_wa_ok {{
+              width: 920px; background: linear-gradient(135deg, #0f291e, #091912);
+              border: 2.5px solid #4ade80; border-radius: 32px; padding: 22px 32px;
+              display: flex; align-items: center; justify-content: space-between;
+            }}
+
+            /* المشهد 4: استعراض الأنظمة الثلاثة + الشارات الأربع */
+            .prod-card {{
+              width: 940px; background: linear-gradient(135deg, rgba(15,23,42,0.96), rgba(9,13,24,0.98));
+              border: 2.5px solid #38bdf8; border-right: 14px solid #38bdf8;
+              border-radius: 30px; padding: 22px 30px; display: flex; align-items: center; justify-content: space-between;
+            }}
+            .prod-card.green {{ border-color: #10b981; border-right-color: #10b981; }}
+            .prod-card.gold {{ border-color: #facc15; border-right-color: #facc15; }}
+            .p-title {{ font-size: 35px; font-weight: 900; color: #fff; }}
+            .p-sub {{ font-size: 23px; font-weight: 700; color: #94a3b8; }}
+            .p-tag {{ font-size: 24px; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: #38bdf8; background: rgba(56,189,248,0.12); padding: 10px 22px; border-radius: 16px; }}
+
+            .feat-pill {{
+              width: 455px; background: #0f172a; border: 2px solid rgba(74,222,128,0.5);
+              border-radius: 24px; padding: 18px 24px; text-align: center;
+              font-size: 27px; font-weight: 900; color: #f8fafc;
+            }}
+
+            /* المشهد 5: الدعوة لاتخاذ إجراء CTA */
+            #s5_hero {{
+              width: 940px; background: linear-gradient(180deg, rgba(14,28,54,0.96), rgba(7,13,26,0.98));
+              border: 3px solid #38bdf8; border-radius: 42px; padding: 40px; text-align: center;
+              box-shadow: 0 25px 60px rgba(0,0,0,0.85);
+            }}
+            .cta-slogan {{ font-size: 52px; font-weight: 900; color: #fff; margin: 18px 0 10px; }}
+            .cta-slogan span {{ color: #4ade80; }}
+            #s5_btn {{
+              width: 780px; background: linear-gradient(90deg, #10b981, #38bdf8);
+              color: #041019; border-radius: 30px; padding: 26px 40px; text-align: center;
+              font-size: 40px; font-weight: 900; box-shadow: 0 20px 50px rgba(16,185,129,0.45);
+            }}
+            #s5_links {{
+              width: 860px; background: rgba(15,23,42,0.92); border: 2px solid rgba(255,255,255,0.18);
+              border-radius: 26px; padding: 20px 32px; display: flex; justify-content: space-around;
+              font-size: 26px; font-weight: 800; color: #cbd5e1;
+            }}
+
+            /* شريط الكابشن السفلي */
+            .cap-bar {{
+              width: 960px; background: rgba(7,10,18,0.95);
+              border: 2px solid rgba(255,255,255,0.2); border-bottom: 9px solid #38bdf8;
+              border-radius: 28px; padding: 20px 32px; text-align: center;
+              box-shadow: 0 18px 40px rgba(0,0,0,0.9);
+            }}
+            .cap-txt {{ font-size: 37px; font-weight: 900; color: #f8fafc; }}
+          </style></head><body>
+            <!-- عناصر المشهد 1 -->
+            <div id="s1_title" class="blk">
+              <div class="h-small">إعلانات ممولة بآلاف الدولارات..</div>
+              <div class="h-big">والنتيجة <span class="red-pill">عملاء يضيعون</span> وفوضى؟</div>
+            </div>
+            <div id="s1_fb" class="chaos-card blk">
+              <span class="ch-tag">🔥 نزيف ميزانية الإعلانات</span>
+              <div class="ch-num">-$4,850</div>
+              <div class="ch-sub">إعلانات بدون ربط برمجي</div>
+              <div class="msg-row" style="border-right-color:#ef4444;color:#fca5a5">💸 تكلفة نقرات تضيع بدون متابعة</div>
+            </div>
+            <div id="s1_wa" class="chaos-card wa blk">
+              <span class="ch-tag" style="color:#fb923c">📱 زحمة رسائل الواتساب</span>
+              <div class="ch-num" style="color:#fb923c">99+ الرسائل</div>
+              <div class="ch-sub">عملاء ينتظرون الرد منذ ساعات</div>
+              <div class="msg-row">💬 "أريد حجز موعد عاجل.. هل من مجيب؟"</div>
+            </div>
+            <div id="s1_paper" class="blk">
+              <div><div style="font-size:32px;font-weight:900;color:#fca5a5">📄 إدخال يدوي وملفات ورقية مبعثرة</div><div style="font-size:23px;color:#cbd5e1;font-weight:700">تشتت الموظفين وضياع 64% من العملاء المحتملين</div></div>
+              <div style="font-size:44px;font-weight:900;color:#ef4444">⚠️ فوضى</div>
+            </div>
+
+            <!-- عناصر المشهد 2 -->
+            <div id="s2_logo" class="blk">
+              <div class="tk-brand">TEK<span>VIYO</span> 2.0</div>
+              <div class="tk-tag">⚡ نحن نبني (عقل) أعمالك الرقمي</div>
+            </div>
+            <div id="s2_dash" class="blk">
+              <div class="dash-top">
+                <span style="font-size:28px;font-weight:900;color:#38bdf8">🌐 منظومة TEKVIYO السحابية الموحدة</span>
+                <span style="background:rgba(74,222,128,0.18);color:#4ade80;padding:6px 18px;border-radius:14px;font-weight:900;font-size:20px">● متصلة لحظياً</span>
+              </div>
+              <div class="dash-grid">
+                <div class="d-box"><div class="d-val">0.1s</div><div class="d-lbl">سرعة التقاط العميل</div></div>
+                <div class="d-box"><div class="d-val">100%</div><div class="d-lbl">أتمتة بدون تدخل</div></div>
+                <div class="d-box"><div class="d-val">24/7</div><div class="d-lbl">متابعة وتأكيد فوري</div></div>
+              </div>
+            </div>
+
+            <!-- عناصر المشهد 3 -->
+            <div id="s3_ad" class="blk">
+              <div>
+                <span style="color:#38bdf8;font-size:20px;font-weight:900">📱 الخطوة 1 • هاتف العميل (إعلان فيسبوك)</span>
+                <div style="font-size:34px;font-weight:900;color:#fff;margin-top:4px">عيادة الابتسامة الرقمية • احجز الآن</div>
+              </div>
+              <div class="ad-btn">اضغط للتسجيل 👆</div>
+            </div>
+            <div id="s3_popup" class="blk">
+              <div>
+                <span class="pop-badge">🔔 إشعار فوري في لوحة السكرتيرة • Webhook</span>
+                <div style="font-size:35px;font-weight:900;color:#fff;margin-top:10px">مريض جديد من فيسبوك (تم الحفظ تلقائياً)</div>
+                <div style="font-size:23px;color:#a7f3d0;font-weight:700">الاسم، رقم الهاتف، والخدمة المطلوبة جاهزة أمام الموظف</div>
+              </div>
+              <div style="font-size:48px;font-weight:900;color:#4ade80;font-family:'JetBrains Mono'">0.1s</div>
+            </div>
+            <div id="s3_wa_ok" class="blk">
+              <div>
+                <span style="color:#4ade80;font-size:21px;font-weight:900">💬 الخطوة 3 • رسالة واتساب أوتوماتيكية للعميل</span>
+                <div style="font-size:34px;font-weight:900;color:#fff;margin-top:4px">"أهلاً بك! تم تأكيد موعدك بنجاح ✅"</div>
+              </div>
+              <div style="background:#10b981;color:#04130d;padding:10px 22px;border-radius:16px;font-size:23px;font-weight:900">تم الإرسال تلقائياً</div>
+            </div>
+
+            <!-- عناصر المشهد 4 -->
+            <div id="s4_p1" class="prod-card blk">
+              <div><div class="p-title">🦷 نظام العيادات الطبية (DentaCare)</div><div class="p-sub">ملفات المرضى، المواعيد المؤتمتة، وتنبيهات الواتساب</div></div>
+              <div class="p-tag">HEALTH CLOUD</div>
+            </div>
+            <div id="s4_p2" class="prod-card green blk">
+              <div><div class="p-title">🏢 منظومة الشركات العقارية</div><div class="p-sub">ربط حملات العقارات مع المستشارين وتتبع المبيعات</div></div>
+              <div class="p-tag" style="color:#4ade80;background:rgba(74,222,128,0.12)">REAL ESTATE</div>
+            </div>
+            <div id="s4_p3" class="prod-card gold blk">
+              <div><div class="p-title">🛍️ نظام مبيعات التجزئة والمراكز</div><div class="p-sub">إدارة المخزون، الفروع، والولاء السحابي المتكامل</div></div>
+              <div class="p-tag" style="color:#facc15;background:rgba(250,204,21,0.12)">RETAIL POS</div>
+            </div>
+            <div id="s4_f1" class="feat-pill blk">📊 تقارير مالية لحظية</div>
+            <div id="s4_f2" class="feat-pill blk">🌐 إدارة فروع مركزية</div>
+            <div id="s4_f3" class="feat-pill blk">🤖 الذكاء الاصطناعي GEO</div>
+            <div id="s4_f4" class="feat-pill blk">📱 تطبيق جوال متكامل</div>
+
+            <!-- عناصر المشهد 5 -->
+            <div id="s5_hero" class="blk">
+              <div class="tk-brand">TEK<span>VIYO</span></div>
+              <div class="cta-slogan">لا تسوّق فقط.. <span>قُد سوقك بذكاء.</span></div>
+              <div style="font-size:27px;color:#94a3b8;font-weight:700">الجيل الجديد من أنظمة الأتمتة والربط السحابي للأعمال</div>
+            </div>
+            <div id="s5_btn" class="blk">🚀 احجز استشارتك التقنية المجانية الآن</div>
+            <div id="s5_links" class="blk">
+              <span>🌐 www.tekviyo.com</span>
+              <span>💬 أتمتة واتساب وإعلانات</span>
+              <span>📞 تواصل مباشر</span>
+            </div>
+
+            {caps_html}
+          </body></html>"""
+
+          Path("ui.html").write_text(html_ui, encoding="utf-8")
+
+          ui_ids = [
+              "s1_title", "s1_fb", "s1_wa", "s1_paper",
+              "s2_logo", "s2_dash",
+              "s3_ad", "s3_popup", "s3_wa_ok",
+              "s4_p1", "s4_p2", "s4_p3", "s4_f1", "s4_f2", "s4_f3", "s4_f4",
+              "s5_hero", "s5_btn", "s5_links"
+          ] + [f"cap_{k}_{ab}" for k in range(1, 6) for ab in ("a", "b")]
+
           with sync_playwright() as p:
-              b = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
-              pg = b.new_page(viewport={"width": 1080, "height": 5000})
-              pg.goto(f"file://{os.path.abspath('ui.html')}", wait_until="networkidle")
-              pg.wait_for_timeout(500)
-              for uid in all_ids:
-                  pg.locator(f"#{uid}").screenshot(path=f"ui_layers/{uid}.png", omit_background=True)
-              b.close()
+              browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
+              page = browser.new_page(viewport={"width": 1080, "height": 5800})
+              page.goto(f"file://{os.path.abspath('ui.html')}", wait_until="networkidle")
+              page.wait_for_timeout(600)
+              for uid in ui_ids:
+                  page.locator(f"#{uid}").screenshot(path=f"ui/{uid}.png", omit_background=True)
+              browser.close()
 
-          ui = {uid: Image.open(f"ui_layers/{uid}.png").convert("RGBA") for uid in all_ids}
+          ui = {uid: Image.open(f"ui/{uid}.png").convert("RGBA") for uid in ui_ids}
 
-          # 6. الرندر السريع والنظيف بنظام الإطار الدائري الأنيق (بدون تشوه عزل الخلفية)
-          print("🎬 [3/4] رندر الفيديو بالإطار السينمائي الأنيق والتزامن الكامل...", flush=True)
+          # 3. تجهيز الخلفيات السينمائية للمشاهد الخمسة
+          print("🎬 [3/5] بدء الرندر السينمائي وتحريك المؤثرات والـ Webhooks...", flush=True)
           W, H = 1080, 1920
-          CW, CH = 840, 920
           y_i, x_i = np.ogrid[:H, :W]
-          gl = np.clip(1.0 - np.sqrt((x_i - W*0.5)**2 + (y_i - 1100)**2) / 700.0, 0, 1)
-          bg_base = Image.fromarray(np.stack([
-              (8 + 18*gl).astype(np.uint8),
-              (10 + 28*gl).astype(np.uint8),
-              (18 + 55*gl).astype(np.uint8)
+          d_mid = np.clip(np.sqrt((x_i - W*0.5)**2 + (y_i - H*0.45)**2) / (H*0.58), 0, 1)
+
+          # خلفية المشهد 1 (أحمر داكن تحذيري للفوضى)
+          bg_chaos = Image.fromarray(np.stack([
+              (12 + 48*(1-d_mid)).astype(np.uint8),
+              (8 + 10*(1-d_mid)).astype(np.uint8),
+              (14 + 16*(1-d_mid)).astype(np.uint8)
           ], axis=-1), "RGB").convert("RGBA")
-          bg_dr = ImageDraw.Draw(bg_base)
-          for gx in range(60, W, 64):
-              for gy in range(60, H, 64):
-                  bg_dr.ellipse([gx-1.5, gy-1.5, gx+1.5, gy+1.5], fill=(255, 255, 255, 22))
 
-          # قناع دائري ناعم لإطار المتحدث + إطار خارجي مضيء
-          cam_mask = Image.new("L", (CW, CH), 0)
-          ImageDraw.Draw(cam_mask).rounded_rectangle([0, 0, CW-1, CH-1], radius=48, fill=255)
+          # خلفية المشاهد 2 و3 و4 (أزرق تكنولوجي داكن مع شبكة نقاط دقيقة)
+          bg_tech = Image.fromarray(np.stack([
+              (6 + 14*(1-d_mid)).astype(np.uint8),
+              (11 + 32*(1-d_mid)).astype(np.uint8),
+              (22 + 68*(1-d_mid)).astype(np.uint8)
+          ], axis=-1), "RGB").convert("RGBA")
 
-          border_colors = [(250,204,21), (56,189,248), (16,185,129), (249,115,22), (56,189,248), (16,185,129)]
-          borders = []
-          for bcol in border_colors:
-              b_im = Image.new("RGBA", (CW+12, CH+12), (0, 0, 0, 0))
-              ImageDraw.Draw(b_im).rounded_rectangle([0, 0, CW+11, CH+11], radius=52, outline=bcol + (230,), width=5)
-              borders.append(b_im)
+          # خلفية المشهد 5 (أزرق ملكي فخم مع توهج نيون)
+          bg_cta = Image.fromarray(np.stack([
+              (7 + 16*(1-d_mid)).astype(np.uint8),
+              (16 + 48*(1-d_mid)).astype(np.uint8),
+              (34 + 95*(1-d_mid)).astype(np.uint8)
+          ], axis=-1), "RGB").convert("RGBA")
 
-          def ease_b(x):
+          for bg_im, col_g in [(bg_chaos, (239,68,68,22)), (bg_tech, (56,189,248,22)), (bg_cta, (74,222,128,25))]:
+              dr = ImageDraw.Draw(bg_im)
+              for gx in range(60, W, 64):
+                  for gy in range(120, H-100, 64):
+                      dr.ellipse([gx-1.5, gy-1.5, gx+1.5, gy+1.5], fill=col_g)
+
+          def ease_out_back(x):
               x = float(np.clip(x, 0.0, 1.0))
-              return 1.0 + 2.1 * ((x - 1.0)**3) + 1.1 * ((x - 1.0)**2)
+              return 1.0 + 2.2 * ((x - 1.0)**3) + 1.2 * ((x - 1.0)**2)
 
-          def put_img(cv_im, im, cx, cy, sc=1.0):
-              w = im if abs(sc-1.0)<0.01 else im.resize((max(10,int(im.width*sc)), max(10,int(im.height*sc))), Image.Resampling.BILINEAR)
-              cv_im.paste(w, (int(cx - w.width/2), int(cy - w.height/2)), w)
+          def paste_c(canvas, im, cx, cy, scale=1.0, alpha=1.0):
+              if alpha <= 0.01 or scale <= 0.1:
+                  return
+              w = im if abs(scale - 1.0) < 0.01 else im.resize((max(10, int(im.width*scale)), max(10, int(im.height*scale))), Image.Resampling.BILINEAR)
+              if alpha < 0.99:
+                  w = w.copy()
+                  w.putalpha(w.getchannel("A").point(lambda p: int(p * alpha)))
+              canvas.paste(w, (int(cx - w.width/2), int(cy - w.height/2)), w)
 
-          cap = cv2.VideoCapture("sync_cut.mp4")
+          def draw_cursor(draw_obj, cx, cy, clicked=False):
+              if clicked:
+                  draw_obj.ellipse([cx-38, cy-38, cx+38, cy+38], outline=(74, 222, 128, 220), width=4)
+              pts = [(cx, cy), (cx+38, cy+16), (cx+22, cy+24), (cx+32, cy+42), (cx+22, cy+47), (cx+12, cy+29), (cx, cy+40)]
+              draw_obj.polygon(pts, fill=(255, 255, 255, 255), outline=(9, 13, 24, 255))
+
           fps = 30
-          total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+          total_frames = int(total_dur * fps)
+          s_starts = [0.0]
+          for d in scene_durations:
+              s_starts.append(s_starts[-1] + d)
 
-          proc = subprocess.Popen([
+          ffmpeg_proc = subprocess.Popen([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
               "-f", "rawvideo", "-vcodec", "rawvideo",
-              "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", "30", "-i", "-",
+              "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", str(fps), "-i", "-",
               "-i", "final_audio.aac", "-c:v", "libx264", "-preset", "superfast",
               "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy",
-              "-shortest", "Pro_PiP_Studio_Reel.mp4"
+              "-shortest", "TEKVIYO_2_Launch_Reel.mp4"
           ], stdin=subprocess.PIPE)
 
+          qa_frames = {}
           t0 = time.time()
-          idx = 0
-          while True:
-              ret, bgr = cap.read()
-              if not ret: break
-              t = idx / fps
-              canvas = bg_base.copy()
 
-              # تحديد رقم المشهد الحالي (من 0 إلى 5) حسب التوقيت المتزامن
-              s_idx = 0
-              for k in range(6):
-                  if t >= t_marks[k]:
-                      s_idx = k
-              t_local = t - t_marks[s_idx]
-              p_in = ease_b(t_local / 0.42)
+          for i in range(total_frames):
+              t = i / fps
+              # تحديد المشهد الحالي (0 -> 4)
+              sc_idx = 0
+              for k in range(5):
+                  if t >= s_starts[k]:
+                      sc_idx = k
+              t_sc = t - s_starts[sc_idx]
+              dur_sc = scene_durations[sc_idx]
+              prog_sc = float(np.clip(t_sc / max(0.1, dur_sc), 0.0, 1.0))
 
-              # 1. وضع المشهد العلوي المناسب للجملة الحالية (يتغير في كل جملة!)
-              put_img(canvas, ui[f"top{s_idx}"], W/2, 275 - (1.0 - p_in)*65, max(0.25, p_in))
+              if sc_idx == 0:
+                  canvas = bg_chaos.copy()
+                  dr = ImageDraw.Draw(canvas)
+                  p0 = ease_out_back(t_sc / 0.45)
+                  paste_c(canvas, ui["s1_title"], W/2, 270 - (1-p0)*60, max(0.2, p0))
 
-              # 2. إطار المتحدث بخلفية طبيعية نقية + زوم ناعم تفاعلي عند الإشارة
-              rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-              zoom = 1.0 + 0.05 * math.sin(min(1.0, t_local / 0.6) * math.pi) if s_idx in (3, 4, 5) else 1.0
-              if zoom > 1.005:
-                  zh, zw = int(CH / zoom), int(CW / zoom)
-                  y0, x0 = (CH - zh)//2, (CW - zw)//2
-                  rgb = cv2.resize(rgb[y0:y0+zh, x0:x0+zw], (CW, CH))
+                  # الكرت الأيمن (الإعلانات المحترقة) والكرت الأيسر (زحمة الواتساب مع اهتزاز الفوضى)
+                  if t_sc >= 0.6:
+                      p1 = ease_out_back((t_sc - 0.6) / 0.45)
+                      shake_x = math.sin(t * 28.0) * 6.0 if t_sc > 2.2 else 0.0
+                      paste_c(canvas, ui["s1_fb"], 785 + shake_x, 730, max(0.2, p1))
+                  if t_sc >= 1.4:
+                      p2 = ease_out_back((t_sc - 1.4) / 0.45)
+                      shake_y = math.cos(t * 32.0) * 6.0 if t_sc > 2.2 else 0.0
+                      paste_c(canvas, ui["s1_wa"], 295, 730 + shake_y, max(0.2, p2))
+                  if t_sc >= 2.6:
+                      p3 = ease_out_back((t_sc - 2.6) / 0.45)
+                      paste_c(canvas, ui["s1_paper"], W/2 + math.sin(t*35)*8.0, 1210, max(0.2, p3))
 
-              spk_pil = Image.fromarray(rgb, "RGB").convert("RGBA")
-              spk_pil.putalpha(cam_mask)
+              elif sc_idx == 1:
+                  canvas = bg_tech.copy()
+                  dr = ImageDraw.Draw(canvas)
+                  # خطوط بيانات متوهجة (Data Lines) تنبثق من الشعار نحو لوحة التحكم
+                  line_prog = float(np.clip((t_sc - 0.5) / 1.5, 0.0, 1.0))
+                  for lx in [220, 380, 540, 700, 860]:
+                      end_y = int(520 + 480 * line_prog)
+                      dr.line([(W//2, 480), (lx, end_y)], fill=(56, 189, 248, 130), width=4)
+                      dr.ellipse([lx-8, end_y-8, lx+8, end_y+8], fill=(74, 222, 128, 240))
 
-              cam_y = 1045 + math.sin(t * 2.2) * 6.0
-              b_im = borders[s_idx]
-              canvas.paste(b_im, (int(W/2 - (CW+12)/2), int(cam_y - (CH+12)/2)), b_im)
-              canvas.paste(spk_pil, (int(W/2 - CW/2), int(cam_y - CH/2)), spk_pil)
+                  p_logo = ease_out_back(t_sc / 0.5)
+                  paste_c(canvas, ui["s2_logo"], W/2, 430 + math.sin(t*3.0)*6.0, max(0.2, p_logo))
+                  if t_sc >= 1.2:
+                      p_dash = ease_out_back((t_sc - 1.2) / 0.55)
+                      paste_c(canvas, ui["s2_dash"], W/2, 1060, max(0.2, p_dash))
 
-              # 3. الكابشن الحرفي في أسفل الشاشة تماماً (مع تكبير إضافي عندما يشير إليه في المشهد 3)
-              cap_scale = (1.06 if s_idx == 3 else 1.0) * min(1.04, max(0.75, p_in))
-              put_img(canvas, ui[f"cap{s_idx}"], W/2, 1715, cap_scale)
+              elif sc_idx == 2:
+                  canvas = bg_tech.copy()
+                  dr = ImageDraw.Draw(canvas)
 
-              # شريط تقدم ذهبي أنيق في أقصى الأسفل
-              dr = ImageDraw.Draw(canvas)
-              pw = int(960 * (idx / max(1, total_frames - 1)))
-              dr.rounded_rectangle([60, 1855, 1020, 1869], radius=7, fill=(255, 255, 255, 40))
-              dr.rounded_rectangle([60, 1855, 60 + max(16, pw), 1869], radius=7, fill=border_colors[s_idx] + (255,))
+                  # أنبوب الـ Webhook المضيء الذي يربط الإعلان بلوحة السكرتيرة والواتساب
+                  dr.line([(W//2, 360), (W//2, 1260)], fill=(30, 41, 59, 255), width=14)
 
-              try: proc.stdin.write(canvas.tobytes())
-              except BrokenPipeError: break
-              idx += 1
-              if idx % 90 == 0 or idx == total_frames:
-                  print(f"⚡ تقدم الرندر السريع: {idx}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
+                  p_ad = ease_out_back(t_sc / 0.45)
+                  ad_scale = 0.95 if (0.27 <= prog_sc <= 0.34) else max(0.2, p_ad)
+                  paste_c(canvas, ui["s3_ad"], W/2, 330, ad_scale)
 
-          cap.release()
-          try: proc.stdin.close()
-          except Exception: pass
-          proc.wait()
-          print("✅ [4/4] اكتمل إنتاج الفيديو بنجاح ساحق وتزامن 100%!", flush=True)
+                  # حركة الماوس والضغط على الإعلان ثم طيران حزمة البيانات (Webhook Orb)
+                  if prog_sc < 0.36:
+                      cur_p = float(np.clip(prog_sc / 0.28, 0.0, 1.0))
+                      cx = int(750 - 520 * cur_p)
+                      cy = int(520 - 175 * cur_p)
+                      draw_cursor(dr, cx, cy, clicked=(prog_sc >= 0.27))
+
+                  if 0.32 <= prog_sc <= 0.54:
+                      fly_p = (prog_sc - 0.32) / 0.22
+                      orb_y = int(350 + 430 * fly_p)
+                      dr.line([(W//2, 350), (W//2, orb_y)], fill=(74, 222, 128, 255), width=10)
+                      dr.ellipse([W//2-24, orb_y-24, W//2+24, orb_y+24], fill=(74, 222, 128, 255), outline=(255,255,255,255), width=4)
+
+                  if prog_sc >= 0.50:
+                      dr.line([(W//2, 350), (W//2, 780)], fill=(74, 222, 128, 220), width=8)
+                      p_pop = ease_out_back((prog_sc - 0.50) * dur_sc / 0.45)
+                      paste_c(canvas, ui["s3_popup"], W/2, 780, max(0.2, p_pop))
+
+                  if prog_sc >= 0.68:
+                      dr.line([(W//2, 780), (W//2, 1210)], fill=(56, 189, 248, 220), width=8)
+                      p_wa = ease_out_back((prog_sc - 0.68) * dur_sc / 0.45)
+                      paste_c(canvas, ui["s3_wa_ok"], W/2, 1210, max(0.2, p_wa))
+
+              elif sc_idx == 3:
+                  canvas = bg_tech.copy()
+                  # ظهور الشاشات الثلاث العائمة + الشارات الأربع
+                  for idx_p, (pid, delay_p, py) in enumerate([("s4_p1", 0.1, 310), ("s4_p2", 0.9, 560), ("s4_p3", 1.7, 810)]):
+                      if t_sc >= delay_p:
+                          pp = ease_out_back((t_sc - delay_p) / 0.45)
+                          float_y = math.sin(t * 2.8 + idx_p) * 5.0
+                          paste_c(canvas, ui[pid], W/2, py + float_y, max(0.2, pp))
+
+                  feats = [("s4_f1", 2.6, 765, 1085), ("s4_f2", 3.0, 315, 1085), ("s4_f3", 3.4, 765, 1235), ("s4_f4", 3.8, 315, 1235)]
+                  for fid, df, fx, fy in feats:
+                      if t_sc >= df:
+                          pf = ease_out_back((t_sc - df) / 0.4)
+                          paste_c(canvas, ui[fid], fx, fy, max(0.2, pf))
+
+              else:
+                  canvas = bg_cta.copy()
+                  dr = ImageDraw.Draw(canvas)
+                  ph = ease_out_back(t_sc / 0.5)
+                  paste_c(canvas, ui["s5_hero"], W/2, 460 + math.sin(t*2.5)*6.0, max(0.2, ph))
+                  if t_sc >= 1.0:
+                      pb = ease_out_back((t_sc - 1.0) / 0.45)
+                      btn_click = 0.96 if (2.8 <= t_sc <= 3.3) else max(0.2, pb)
+                      paste_c(canvas, ui["s5_btn"], W/2, 950, btn_click)
+                  if t_sc >= 1.8:
+                      pl = ease_out_back((t_sc - 1.8) / 0.45)
+                      paste_c(canvas, ui["s5_links"], W/2, 1200, max(0.2, pl))
+                  if t_sc >= 2.0:
+                      cp = float(np.clip((t_sc - 2.0) / 0.9, 0.0, 1.0))
+                      draw_cursor(dr, int(820 - 280*cp), int(1220 - 250*cp), clicked=(t_sc >= 2.85))
+
+              # شريط التقدم العلوي بستايل @ghalebgi (01/05 -> 05/05)
+              dr_top = ImageDraw.Draw(canvas)
+              seg_w = 170
+              for s_bar in range(5):
+                  bx = 85 + s_bar * (seg_w + 18)
+                  col_b = (74, 222, 128, 255) if s_bar < sc_idx else ((56, 189, 248, 255) if s_bar == sc_idx else (255, 255, 255, 45))
+                  dr_top.rounded_rectangle([bx, 65, bx + seg_w, 81], radius=8, fill=col_b)
+
+              # الكابشن الحرفي المتزامن في الثلث السفلي
+              cap_key = f"cap_{sc_idx+1}_a" if prog_sc < 0.50 else f"cap_{sc_idx+1}_b"
+              paste_c(canvas, ui[cap_key], W/2, 1660, 1.0)
+
+              # انتقال المسح الهندسي الخاطف بين المشاهد (Clear Pro Wipe)
+              if t_sc < 0.22 and sc_idx > 0:
+                  wipe_w = int(W * (1.0 - t_sc / 0.22))
+                  if wipe_w > 10:
+                      wipe_col = (56, 189, 248, 230) if sc_idx in (1, 3) else (16, 185, 129, 230)
+                      dr_top.rectangle([0, 0, wipe_w, H], fill=wipe_col)
+
+              # حفظ لقطة منتصف كل مشهد للوحة الفحص الذاتي (QA Contact Sheet)
+              if abs(prog_sc - 0.62) < 0.02 and sc_idx not in qa_frames:
+                  qa_frames[sc_idx] = canvas.convert("RGB").resize((360, 640))
+
+              try:
+                  ffmpeg_proc.stdin.write(canvas.tobytes())
+              except BrokenPipeError:
+                  break
+
+              if i % 90 == 0 or i == total_frames - 1:
+                  print(f"⚡ تقدم الرندر: {i+1}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
+
+          try:
+              ffmpeg_proc.stdin.close()
+          except Exception:
+              pass
+          ffmpeg_proc.wait()
+
+          # 4. إنشاء لوحة الفحص البصري الذاتي للمشاهد الخمسة (QA Visual Inspection Sheet)
+          print("🔍 [4/5] توليد لوحة الفحص البصري الذاتي للمشاهد الخمسة...", flush=True)
+          sheet = Image.new("RGB", (1800, 640), (9, 13, 24))
+          for k in range(5):
+              if k in qa_frames:
+                  sheet.paste(qa_frames[k], (k * 360, 0))
+          sheet.save("QA_Inspection_Sheet.jpg", quality=92)
+          print("✅ [5/5] اكتمل إنتاج فيديو إطلاق TEKVIYO 2.0 بنجاح ساحق!", flush=True)
           EOF
-          python3 -u pro_studio.py
+          python3 -u build_tekviyo.py
 
-      - name: 📦 4. رفع الفيديو الجاهز للتحميل المباشر
+      - name: 📦 4. رفع فيديو الإطلاق ولوحة الفحص البصري
         uses: actions/upload-artifact@v4
         with:
-          name: 🎬-Pro-PiP-Synced-Reel
-          path: Pro_PiP_Studio_Reel.mp4
+          name: 🚀-TEKVIYO-2.0-Launch-Reel
+          path: |TEKVIYO_2_Launch_Reel.mp4
+            QA_Inspection_Sheet.jpg
+          retention-days: 30
+            TEKVIYO_2_Launch_Reel.mp4
+            QA_Inspection_Sheet.jpg
           retention-days: 30
