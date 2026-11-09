@@ -1,4 +1,4 @@
-name: 🚀 TEKVIYO 2.0 Launch Studio (Fixed Voice + Rich UI)
+name: 🚀 TEKVIYO 2026 Kinetic Bento & 3D Camera Studio
 
 on:
   push:
@@ -6,88 +6,63 @@ on:
   workflow_dispatch:
     inputs:
       voice_name:
-        description: 'شخصية المعلق في Gemini 3.8 TTS (Charon = فخم / Fenrir = وثائقي واثق)'
+        description: 'شخصية المعلق في Gemini 3.8 TTS (Charon / Fenrir)'
         required: false
         default: 'Charon'
 
 jobs:
-  render_tekviyo_v2:
+  render_2026_edition:
     runs-on: ubuntu-latest
     steps:
       - name: 📥 1. تجهيز السيرفر السحابي
         uses: actions/checkout@v4
 
-      - name: ⚙️ 2. تثبيت محركات الجرافيك والصوتيات
+      - name: ⚙️ 2. تثبيت محرك الرندر الحقيقي (Playwright + FFmpeg)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
           pip install -q playwright edge-tts pillow numpy requests
           playwright install chromium
 
-      - name: 🎬 3. رندر إعلان TEKVIYO 2.0 (صوت صافي بدون قراءة التعليمات + واجهات غنية)
+      - name: 🎬 3. رندر إعلان TEKVIYO 2.0 بمحرك 2026 (3D Camera + Live SVG + Blur Captions)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           VOICE_PERSONA: ${{ github.event.inputs.voice_name || 'Charon' }}
         run: |
-          cat << 'EOF' > build_tekviyo_v2.py
-          import os, subprocess, time, wave, math, base64, urllib.request
-          import numpy as np
+          cat << 'EOF' > build_2026_studio.py
+          import os, subprocess, time, wave, math, base64, json
           import requests
           from pathlib import Path
-          from PIL import Image, ImageDraw
+          from PIL import Image
           from playwright.sync_api import sync_playwright
 
-          os.makedirs("ui", exist_ok=True)
           os.makedirs("audio", exist_ok=True)
-          os.makedirs("assets", exist_ok=True)
 
-          # تحميل صور عالية الدقة لإغناء البطاقات ومنع أي فراغ بصري
-          img_urls = {
-              "clinic": "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=300&q=85",
-              "estate": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=300&q=85",
-              "retail": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=300&q=85",
-              "stress": "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=300&q=85"
-          }
-          for k, u in img_urls.items():
-              try:
-                  req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
-                  Path(f"assets/{k}.jpg").write_bytes(urllib.request.urlopen(req, timeout=10).read())
-              except Exception:
-                  Image.new("RGB", (300, 300), (30, 41, 59)).save(f"assets/{k}.jpg")
-
-          u_clinic, u_estate, u_retail, u_stress = [Path(f"assets/{k}.jpg").resolve().as_uri() for k in ("clinic", "estate", "retail", "stress")]
-
-          # النص الصوتي الصافي فقط (بدون أي جمل توجيهية حتى لا يقرأها المعلق!)
           scenes_script = [
               {
                   "id": 1,
                   "voice": "تَصْرِفُ آلافَ الدُّولَارَاتِ عَلَى الإِعْلَانَات... لَكِنَّ العُمَلَاءَ يَضِيعُونَ فِي زَحْمَةِ رَسَائِلِ الوَاتْسَاب، وَمُوَظَّفُوكَ غَارِقُونَ فِي الإِدْخَالِ اليَدَوِيِّ وَالفَوْضَى؟",
-                  "cap1": "تصرف آلاف الدولارات على الإعلانات..",
-                  "cap2": "والعملاء يضيعون في زحمة الواتساب والفوضى؟ ⚠️"
+                  "words": ["تصرف", "آلاف", "الدولارات", "على", "الإعلانات..", "لكن", "العملاء", "يضيعون", "في", "زحمة", "الواتساب", "وموظفوك", "غارقون", "في", "الفوضى؟"]
               },
               {
                   "id": 2,
                   "voice": "التَّسْوِيقُ وَحْدَهُ لَمْ يَعُدْ يَكْفِي! فِي تِكْ فِيو، نَحْنُ لَا نُصَمِّمُ لَكَ إِعْلَانَاتٍ فَقَط... نَحْنُ نَبْنِي عَقْلَ أَعْمَالِكَ.",
-                  "cap1": "التسويق وحده لم يعد يكفي!",
-                  "cap2": "في TEKVIYO.. نحن نبني (عقل) أعمالك 🧠"
+                  "words": ["التسويق", "وحده", "لم", "يعد", "يكفي!", "في", "TEKVIYO", "نحن", "لا", "نصمم", "إعلانات", "فقط..", "نحن", "نبني", "عقل", "أعمالك."]
               },
               {
                   "id": 3,
                   "voice": "اِكْتَشِفْ قُوَّةَ الرَّبْطِ الذَّكِيّ! إِعْلَانَاتُكَ الآنَ تَصُبُّ مُبَاشَرَةً فِي نِظَامِكَ الإِدَارِيِّ لَحْظِيًّا. العَمِيلُ يَضْغَطُ عَلَى الإِعْلَان، بَيَانَاتُهُ تَظْهَرُ فِي شَاشَةِ سِكْرِتِيرَتِكَ، وَرِسَالَةُ التَّأْكِيدِ تَصِلُهُ أُوتُومَاتِيكِيًّا. لَا تَدَخُّلَ بَشَرِيّ، وَلَا عُمَلَاءَ ضَائِعِين.",
-                  "cap1": "العميل يضغط الإعلان ⬅ يظهر بشاشة السكرتيرة",
-                  "cap2": "ورسالة تأكيد الموعد تصله بالواتساب لحظياً! ⚡"
+                  "words": ["اكتشف", "قوة", "الربط", "الذكي!", "العميل", "يضغط", "الإعلان..", "بياناته", "تظهر", "بشاشة", "السكرتيرة", "ورسالة", "التأكيد", "تصله", "لحظياً", "بلا", "عملاء", "ضائعين."]
               },
               {
                   "id": 4,
                   "voice": "سَوَاءٌ كُنْتَ عِيَادَةً طِبِّيَّة، مُؤَسَّسَةً عَقَارِيَّة، أَوْ مَرْكَزَ أَعْمَال.. أَنْظِمَتُنَا السَّحَابِيَّةُ المُخَصَّصَةُ تَمْنَحُكَ السَّيْطَرَةَ الكَامِلَةَ عَلَى مُوَظَّفِيك، مَبِيعَاتِك، وَنُمُوِّك، مِنْ أَيِّ مَكَانٍ فِي العَالَم.",
-                  "cap1": "عيادات طبية • شركات عقارية • مراكز أعمال",
-                  "cap2": "سيطرة سحابية كاملة من أي مكان في العالم 🌐"
+                  "words": ["سواء", "كنت", "عيادة", "طبية،", "مؤسسة", "عقارية،", "أو", "مركز", "أعمال..", "أنظمتنا", "السحابية", "تمنحك", "السيطرة", "الكاملة", "من", "أي", "مكان", "في", "العالم."]
               },
               {
                   "id": 5,
                   "voice": "لَا تَكْتَفِ بِالوَاجِهَة.. اِبْنِ مَنْظُومَةً مُتَكَامِلَةً لَا تُقْهَر. تَوَاصَلْ مَعَ تِكْ فِيو اليَوْم، وَاحْجِزْ اسْتِشَارَتَكَ التِّقْنِيَّةَ لِنَقْلِ أَعْمَالِكَ لِلْمُسْتَقْبَل.",
-                  "cap1": "لا تكتفِ بالواجهة.. ابنِ منظومة لا تُقهر",
-                  "cap2": "تواصل مع TEKVIYO واحجز استشارتك اليوم 🚀"
+                  "words": ["لا", "تكتفِ", "بالواجهة..", "ابنِ", "منظومة", "متكاملة", "لا", "تُقهر.", "تواصل", "مع", "TEKVIYO", "اليوم", "واحجز", "استشارتك", "للمستقبل."]
               }
           ]
 
@@ -99,7 +74,6 @@ jobs:
               if gemini_key:
                   for m_id in ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts", "gemini-2.5-flash-preview-tts"]:
                       try:
-                          # إرسال النص الصافي فقط دون أي مقدمات توجيهية
                           r = requests.post(
                               f"https://generativelanguage.googleapis.com/v1beta/models/{m_id}:generateContent?key={gemini_key}",
                               json={
@@ -128,18 +102,17 @@ jobs:
                   subprocess.run(["python3", "-m", "edge_tts", "--voice", "ar-SA-HamedNeural", "--rate=+2%", "--pitch=+0Hz", "--text", pure_text_ar, "--write-media", f"audio/raw_{idx}.mp3"], check=True)
                   subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", f"audio/raw_{idx}.mp3", f"audio/raw_{idx}.wav"], check=True)
 
-              # قص أي صمت في بداية التسجيل + ماسترينغ إذاعي + نصف ثانية راحة في النهاية
               subprocess.run([
                   "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", f"audio/raw_{idx}.wav",
-                  "-af", "silenceremove=start_periods=1:start_silence=0.05:start_threshold=-38dB,highpass=f=75,equalizer=f=120:width_type=o:width=2:g=3.5,equalizer=f=3800:width_type=o:width=2:g=2.5,acompressor=threshold=-16dB:ratio=2.5:makeup=3dB,apad=pad_dur=0.45",
+                  "-af", "silenceremove=start_periods=1:start_silence=0.05:start_threshold=-38dB,highpass=f=75,equalizer=f=120:width_type=o:width=2:g=3.5,equalizer=f=3800:width_type=o:width=2:g=2.5,acompressor=threshold=-16dB:ratio=2.5:makeup=3dB,apad=pad_dur=0.40",
                   "-ar", "48000", "-ac", "2", out_wav
               ], check=True)
 
-          print("🔊 [1/5] توليد التعليق الصوتي الصافي والمؤثرات المتزامنة...", flush=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.30:c=pink:r=48000:a=0.42", "-af", "bandpass=f=850:width_type=h:w=550,afade=t=in:st=0:d=0.06,afade=t=out:st=0.14:d=0.16", "-ar", "48000", "-ac", "2", "audio/whoosh.wav"], check=True)
+          print("🔊 [1/4] توليد التعليق الصوتي وهندسة المؤثرات الصوتية...", flush=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "anoisesrc=d=0.28:c=pink:r=48000:a=0.42", "-af", "bandpass=f=900:width_type=h:w=600,afade=t=in:st=0:d=0.05,afade=t=out:st=0.12:d=0.16", "-ar", "48000", "-ac", "2", "audio/whoosh.wav"], check=True)
           subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.65*sin(2*PI*1400*t)*exp(-45*t)+0.40*sin(2*PI*2800*t)*exp(-60*t)':s=48000:d=0.12", "-ar", "48000", "-ac", "2", "audio/click.wav"], check=True)
           subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.50*sin(2*PI*880*t)*exp(-8*t)+0.40*sin(2*PI*1320*t)*exp(-6*t)':s=48000:d=0.55", "-ar", "48000", "-ac", "2", "audio/ping.wav"], check=True)
-          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.40*sin(2*PI*(320+900*t)*t)*exp(-5*t)':s=48000:d=0.45", "-ar", "48000", "-ac", "2", "audio/zap.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.42*sin(2*PI*(320+900*t)*t)*exp(-5*t)':s=48000:d=0.45", "-ar", "48000", "-ac", "2", "audio/zap.wav"], check=True)
           subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.35*sin(2*PI*780*t)*(1+sin(2*PI*14*t))/2*exp(-2.2*t)':s=48000:d=0.90", "-ar", "48000", "-ac", "2", "audio/ring.wav"], check=True)
           subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.55*sin(2*PI*(150-80*t)*t)*exp(-3.5*t)+0.30*sin(2*PI*528*t)*exp(-4*t)':s=48000:d=0.80", "-ar", "48000", "-ac", "2", "audio/shift.wav"], check=True)
 
@@ -154,404 +127,573 @@ jobs:
 
               s_out = f"audio/scene_{sid}_mix.wav"
               if sid == 1:
-                  subprocess.run([
-                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                      "-i", v_wav, "-i", "audio/ring.wav", "-i", "audio/whoosh.wav",
-                      "-filter_complex", "[1:a]adelay=600|600[r1];[2:a]adelay=1800|1800[w1];[1:a]adelay=3800|3800[r2];[0:a][r1][w1][r2]amix=inputs=4:duration=first:weights='2.3 0.75 0.9 0.75'[a]",
-                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
-                  ], check=True)
+                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/ring.wav", "-i", "audio/whoosh.wav", "-filter_complex", "[1:a]adelay=500|500[r1];[2:a]adelay=1600|1600[w1];[1:a]adelay=3400|3400[r2];[0:a][r1][w1][r2]amix=inputs=4:duration=first:weights='2.3 0.75 0.9 0.75'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
               elif sid == 2:
-                  subprocess.run([
-                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                      "-i", v_wav, "-i", "audio/shift.wav", "-i", "audio/ping.wav",
-                      "-filter_complex", "[1:a]adelay=50|50[sh];[2:a]adelay=2200|2200[pg];[0:a][sh][pg]amix=inputs=3:duration=first:weights='2.3 1.1 0.95'[a]",
-                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
-                  ], check=True)
+                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/shift.wav", "-i", "audio/ping.wav", "-filter_complex", "[1:a]adelay=50|50[sh];[2:a]adelay=2000|2000[pg];[0:a][sh][pg]amix=inputs=3:duration=first:weights='2.3 1.1 0.95'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
               elif sid == 3:
-                  t_click = int(dur * 0.34 * 1000)
-                  t_zap   = int(dur * 0.38 * 1000)
-                  t_ping1 = int(dur * 0.52 * 1000)
-                  t_ping2 = int(dur * 0.68 * 1000)
-                  subprocess.run([
-                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                      "-i", v_wav, "-i", "audio/click.wav", "-i", "audio/zap.wav", "-i", "audio/ping.wav",
-                      "-filter_complex",
-                      f"[1:a]adelay={t_click}|{t_click}[c];[2:a]adelay={t_zap}|{t_zap}[z];[3:a]adelay={t_ping1}|{t_ping1}[p1];[3:a]adelay={t_ping2}|{t_ping2}[p2];"
-                      "[0:a][c][z][p1][p2]amix=inputs=5:duration=first:weights='2.3 1.3 1.1 1.05 1.05'[a]",
-                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
-                  ], check=True)
+                  t_click, t_zap, t_ping1, t_ping2 = int(dur*0.33*1000), int(dur*0.37*1000), int(dur*0.50*1000), int(dur*0.66*1000)
+                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/click.wav", "-i", "audio/zap.wav", "-i", "audio/ping.wav", "-filter_complex", f"[1:a]adelay={t_click}|{t_click}[c];[2:a]adelay={t_zap}|{t_zap}[z];[3:a]adelay={t_ping1}|{t_ping1}[p1];[3:a]adelay={t_ping2}|{t_ping2}[p2];[0:a][c][z][p1][p2]amix=inputs=5:duration=first:weights='2.3 1.3 1.1 1.05 1.05'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
               elif sid == 4:
-                  subprocess.run([
-                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                      "-i", v_wav, "-i", "audio/whoosh.wav", "-i", "audio/click.wav",
-                      "-filter_complex", "[1:a]adelay=200|200[w1];[1:a]adelay=1100|1100[w2];[1:a]adelay=2000|2000[w3];[2:a]adelay=3200|3200[c1];[0:a][w1][w2][w3][c1]amix=inputs=5:duration=first:weights='2.3 0.9 0.9 0.9 1.0'[a]",
-                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
-                  ], check=True)
+                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/whoosh.wav", "-i", "audio/click.wav", "-filter_complex", "[1:a]adelay=150|150[w1];[1:a]adelay=1100|1100[w2];[1:a]adelay=2000|2000[w3];[2:a]adelay=3200|3200[c1];[0:a][w1][w2][w3][c1]amix=inputs=5:duration=first:weights='2.3 0.9 0.9 0.9 1.0'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
               else:
                   t_end_ping = int(max(1.0, dur - 1.1) * 1000)
-                  subprocess.run([
-                      "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                      "-i", v_wav, "-i", "audio/shift.wav", "-i", "audio/click.wav", "-i", "audio/ping.wav",
-                      "-filter_complex", f"[1:a]adelay=100|100[s];[2:a]adelay=2600|2600[c];[3:a]adelay={t_end_ping}|{t_end_ping}[p];[0:a][s][c][p]amix=inputs=4:duration=first:weights='2.3 0.95 1.2 1.2'[a]",
-                      "-map", "[a]", "-ar", "48000", "-ac", "2", s_out
-                  ], check=True)
+                  subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", v_wav, "-i", "audio/shift.wav", "-i", "audio/click.wav", "-i", "audio/ping.wav", "-filter_complex", f"[1:a]adelay=100|100[s];[2:a]adelay=2500|2500[c];[3:a]adelay={t_end_ping}|{t_end_ping}[p];[0:a][s][c][p]amix=inputs=4:duration=first:weights='2.3 0.95 1.2 1.2'[a]", "-map", "[a]", "-ar", "48000", "-ac", "2", s_out], check=True)
 
           total_dur = sum(scene_durations)
-          print(f"✅ مدد المشاهد الخمسة الصافية: {[round(d,2) for d in scene_durations]} (الإجمالي: {total_dur:.2f} ثانية)", flush=True)
-
-          subprocess.run([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi",
-              "-i", f"aevalsrc='0.020*sin(2*PI*65*t)+0.015*sin(2*PI*98*t)+0.010*sin(2*PI*147*t)':s=48000:d={total_dur}",
-              "-af", f"afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, total_dur-1.8)}:d=1.8",
-              "-ar", "48000", "-ac", "2", "audio/ambient.wav"
-          ], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"aevalsrc='0.018*sin(2*PI*65*t)+0.014*sin(2*PI*98*t)+0.010*sin(2*PI*147*t)':s=48000:d={total_dur}", "-af", f"afade=t=in:st=0:d=1.2,afade=t=out:st={max(0.5, total_dur-1.8)}:d=1.8", "-ar", "48000", "-ac", "2", "audio/ambient.wav"], check=True)
 
           concat_in = []
-          for k in range(1, 6):
-              concat_in.extend(["-i", f"audio/scene_{k}_mix.wav"])
-          subprocess.run(
-              ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"] + concat_in +
-              ["-filter_complex", "[0:a][1:a][2:a][3:a][4:a]concat=n=5:v=0:a=1[vo]", "-map", "[vo]", "audio/all_vo.wav"],
-              check=True
-          )
-          subprocess.run([
-              "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-              "-i", "audio/all_vo.wav", "-i", "audio/ambient.wav",
-              "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first:weights='1.85 0.45'[aout]",
-              "-map", "[aout]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"
-          ], check=True)
+          for k in range(1, 6): concat_in.extend(["-i", f"audio/scene_{k}_mix.wav"])
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"] + concat_in + ["-filter_complex", "[0:a][1:a][2:a][3:a][4:a]concat=n=5:v=0:a=1[vo]", "-map", "[vo]", "audio/all_vo.wav"], check=True)
+          subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", "audio/all_vo.wav", "-i", "audio/ambient.wav", "-filter_complex", "[0:a][1:a]amix=inputs=2:duration=first:weights='1.85 0.45'[aout]", "-map", "[aout]", "-c:a", "aac", "-b:a", "320k", "final_audio.aac"], check=True)
 
-          # 2. تصميم الطبقات البصرية الغنية بالصور والرسوم (مع إصلاح خط "99+ رسالة" وإغناء الشاشات)
-          print("🎨 [2/5] بناء الواجهات المصورة الغنية للمشاهد الخمسة...", flush=True)
-          caps_html = ""
-          for sc in scenes_script:
-              sid = sc["id"]
-              col = "#ef4444" if sid == 1 else ("#38bdf8" if sid in (2, 4) else "#10b981")
-              caps_html += f"""
-              <div id="cap_{sid}_a" class="cap-bar" style="border-bottom-color:{col}">
-                <div class="cap-txt">{sc['cap1']}</div>
-              </div>
-              <div id="cap_{sid}_b" class="cap-bar" style="border-bottom-color:{col}">
-                <div class="cap-txt hl" style="color:{col}">{sc['cap2']}</div>
-              </div>"""
+          # 2. بناء محرك 2026 التفاعلي الكامل (Live 3D DOM + SVG + Blur-Reveal Word Captions)
+          print("🎨 [2/4] بناء مسرح 2026 التفاعلي (Apple/Linear Bento + 3D Camera + Blur Captions)...", flush=True)
+          scenes_json = json.dumps(scenes_script, ensure_ascii=False)
 
-          html_ui = f"""<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
-          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+          html_stage = f"""<!DOCTYPE html>
+          <html lang="ar" dir="rtl">
+          <head>
+          <meta charset="UTF-8">
+          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
           <style>
             * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-            body {{ background: transparent; font-family: 'Cairo', sans-serif; color: #fff; width: 1080px; padding: 25px; }}
-            .blk {{ margin-bottom: 35px; }}
+            body {{
+              width: 1080px; height: 1920px; overflow: hidden;
+              font-family: 'Cairo', sans-serif;
+              background: #050811; color: #f8fafc;
+              position: relative;
+            }}
+            .en {{ font-family: 'Plus Jakarta Sans', sans-serif; direction: ltr; display: inline-block; }}
             .mono {{ font-family: 'JetBrains Mono', monospace; direction: ltr; display: inline-block; }}
 
-            /* المشهد 1: الفوضى */
-            #s1_title {{ width: 960px; text-align: center; padding: 16px; }}
-            .h-small {{ font-size: 38px; font-weight: 800; color: #fca5a5; }}
-            .h-big {{ font-size: 58px; font-weight: 900; color: #fff; line-height: 1.22; margin-top: 6px; }}
-            .red-pill {{ display: inline-block; background: #ef4444; color: #fff; padding: 2px 22px; border-radius: 18px; }}
+            /* الخلفية الحية المتغيرة (Dark Obsidian -> Apple Pearl Light Mode -> Royal Finale) */
+            #bg-layer {{
+              position: absolute; inset: 0; z-index: 0;
+              background: radial-gradient(circle at 50% 25%, #1e1b4b 0%, #050811 70%);
+            }}
+            #orb1, #orb2 {{
+              position: absolute; border-radius: 50%; filter: blur(95px); opacity: 0.55; z-index: 1;
+            }}
+            #orb1 {{ width: 680px; height: 680px; top: -120px; right: -120px; background: #ef4444; }}
+            #orb2 {{ width: 620px; height: 620px; bottom: 220px; left: -120px; background: #f97316; }}
 
-            .chaos-card {{
-              width: 460px; background: linear-gradient(145deg, #221218, #12090d);
-              border: 2.5px solid #ef4444; border-radius: 32px; padding: 24px;
-              box-shadow: 0 20px 45px rgba(0,0,0,0.85);
+            #grid-overlay {{
+              position: absolute; inset: 0; z-index: 2;
+              background-image:
+                linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px);
+              background-size: 72px 72px;
             }}
-            .chaos-card.wa {{ border-color: #f97316; background: linear-gradient(145deg, #211610, #110c08); }}
-            .ch-tag {{ font-size: 21px; font-weight: 900; color: #f87171; margin-bottom: 8px; display: block; }}
-            .ch-num-row {{ font-size: 46px; font-weight: 900; color: #ef4444; line-height: 1.15; }}
-            .ch-sub {{ font-size: 23px; font-weight: 700; color: #fecaca; margin-top: 8px; }}
-            .msg-row {{ background: rgba(255,255,255,0.07); border-right: 5px solid #f97316; padding: 10px 16px; border-radius: 12px; margin-top: 12px; font-size: 20px; font-weight: 700; color: #fed7aa; }}
 
-            #s1_paper {{
-              width: 950px; background: linear-gradient(135deg, #1d1218, #120b10); border: 2.5px dashed #f87171;
-              border-radius: 30px; padding: 22px 28px; display: flex; align-items: center; justify-content: space-between;
-              box-shadow: 0 18px 40px rgba(0,0,0,0.8);
-            }}
-            .stress-thumb {{ width: 120px; height: 120px; border-radius: 22px; object-fit: cover; border: 3px solid #ef4444; }}
-
-            /* المشهد 2: عقل أعمالك TEKVIYO */
-            #s2_logo {{
-              width: 820px; background: linear-gradient(135deg, rgba(14,25,45,0.96), rgba(6,11,22,0.98));
-              border: 3px solid #38bdf8; border-radius: 40px; padding: 30px 40px; text-align: center;
-              box-shadow: 0 25px 60px rgba(56,189,248,0.3);
-            }}
-            .tk-brand {{ font-size: 78px; font-weight: 900; color: #fff; font-family: 'JetBrains Mono', monospace; letter-spacing: 3px; }}
-            .tk-brand span {{ color: #38bdf8; }}
-            .tk-tag {{ font-size: 30px; font-weight: 800; color: #4ade80; margin-top: 6px; }}
-
-            #s2_dash {{
-              width: 960px; background: rgba(11,18,32,0.96); border: 2.5px solid rgba(56,189,248,0.5);
-              border-radius: 34px; padding: 28px 34px; box-shadow: 0 22px 50px rgba(0,0,0,0.85);
-            }}
-            .dash-top {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 14px; }}
-            .dash-grid {{ display: flex; gap: 20px; margin-bottom: 20px; }}
-            .d-box {{ flex: 1; background: rgba(20,32,54,0.95); border: 1.5px solid rgba(74,222,128,0.45); border-radius: 22px; padding: 18px; text-align: center; }}
-            .d-val {{ font-size: 40px; font-weight: 900; color: #4ade80; font-family: 'JetBrains Mono', monospace; }}
-            .d-lbl {{ font-size: 22px; font-weight: 800; color: #e2e8f0; margin-top: 4px; }}
-            . SaaS-pipeline {{ display: flex; justify-content: space-between; background: rgba(6,11,22,0.9); border-radius: 18px; padding: 14px 24px; font-size: 22px; font-weight: 800; color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }}
-
-            /* المشهد 3: السحر التقني Webhooks */
-            #s3_ad {{
-              width: 930px; background: linear-gradient(135deg, #111827, #0b111e); border: 2.5px solid #38bdf8;
-              border-radius: 32px; padding: 24px 32px; display: flex; align-items: center; justify-content: space-between;
-              box-shadow: 0 20px 45px rgba(0,0,0,0.8);
-            }}
-            .ad-btn {{
-              background: linear-gradient(135deg, #0284c7, #38bdf8); color: #fff;
-              padding: 14px 34px; border-radius: 20px; font-size: 28px; font-weight: 900;
-              box-shadow: 0 10px 25px rgba(56,189,248,0.45);
-            }}
-            #s3_popup {{
-              width: 930px; background: linear-gradient(135deg, #06281e, #051812);
-              border: 3px solid #10b981; border-radius: 32px; padding: 24px 32px;
+            /* شريط الخطوات العلوي بستايل @ghalebgi (01/05 -> 05/05) */
+            #top-hud {{
+              position: absolute; top: 58px; left: 70px; right: 70px; z-index: 30;
               display: flex; align-items: center; justify-content: space-between;
-              box-shadow: 0 20px 45px rgba(16,185,129,0.35);
             }}
-            .pop-badge {{ background: #10b981; color: #051812; font-size: 21px; font-weight: 900; padding: 5px 18px; border-radius: 14px; }}
-            #s3_wa_ok {{
-              width: 930px; background: linear-gradient(135deg, #0f291e, #091912);
-              border: 2.5px solid #4ade80; border-radius: 32px; padding: 22px 32px;
-              display: flex; align-items: center; justify-content: space-between;
-              box-shadow: 0 20px 45px rgba(74,222,128,0.25);
-            }}
-
-            /* المشهد 4: استعراض الأنظمة الثلاثة مع صور حقيقية */
-            .prod-card {{
-              width: 940px; background: linear-gradient(135deg, rgba(15,23,42,0.96), rgba(9,13,24,0.98));
-              border: 2.5px solid #38bdf8; border-right: 14px solid #38bdf8;
-              border-radius: 30px; padding: 20px 28px; display: flex; align-items: center; justify-content: space-between;
-              box-shadow: 0 18px 40px rgba(0,0,0,0.8);
-            }}
-            .prod-card.green {{ border-color: #10b981; border-right-color: #10b981; }}
-            .prod-card.gold {{ border-color: #facc15; border-right-color: #facc15; }}
-            .prod-left {{ display: flex; align-items: center; gap: 22px; }}
-            .prod-img {{ width: 96px; height: 96px; border-radius: 20px; object-fit: cover; border: 2.5px solid #38bdf8; }}
-            .green .prod-img {{ border-color: #10b981; }}
-            .gold .prod-img {{ border-color: #facc15; }}
-            .p-title {{ font-size: 33px; font-weight: 900; color: #fff; }}
-            .p-sub {{ font-size: 22px; font-weight: 700; color: #94a3b8; margin-top: 4px; }}
-            .p-tag {{ font-size: 22px; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: #38bdf8; background: rgba(56,189,248,0.12); padding: 10px 20px; border-radius: 16px; }}
-
-            .feat-pill {{
-              width: 455px; background: linear-gradient(135deg, #111c33, #0b1324); border: 2px solid rgba(74,222,128,0.55);
-              border-radius: 24px; padding: 18px 24px; text-align: center;
-              font-size: 27px; font-weight: 900; color: #f8fafc; box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+            .step-bars {{ display: flex; gap: 14px; flex: 1; margin-left: 28px; }}
+            .s-bar {{ height: 10px; flex: 1; border-radius: 99px; background: rgba(255,255,255,0.14); overflow: hidden; position: relative; }}
+            .s-fill {{ position: absolute; inset: 0; width: 0%; background: #38bdf8; border-radius: 99px; }}
+            .step-badge {{
+              padding: 8px 22px; border-radius: 99px; font-size: 22px; font-weight: 900;
+              background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+              color: #f8fafc; font-family: 'JetBrains Mono', monospace;
             }}
 
-            /* المشهد 5: الدعوة لاتخاذ إجراء CTA */
-            #s5_hero {{
-              width: 940px; background: linear-gradient(180deg, rgba(14,28,54,0.96), rgba(7,13,26,0.98));
-              border: 3px solid #38bdf8; border-radius: 42px; padding: 38px; text-align: center;
-              box-shadow: 0 25px 60px rgba(0,0,0,0.85);
+            /* الكاميرا ثلاثية الأبعاد (3D Camera Perspective Stage) */
+            #viewport-3d {{
+              position: absolute; top: 140px; left: 0; width: 1080px; height: 1280px;
+              perspective: 1400px; z-index: 10;
+              display: flex; align-items: center; justify-content: center;
             }}
-            .cta-slogan {{ font-size: 52px; font-weight: 900; color: #fff; margin: 16px 0 10px; }}
-            .cta-slogan span {{ color: #4ade80; }}
-            #s5_btn {{
-              width: 820px; background: linear-gradient(90deg, #10b981, #38bdf8);
-              color: #041019; border-radius: 30px; padding: 24px 38px; text-align: center;
-              font-size: 38px; font-weight: 900; box-shadow: 0 20px 50px rgba(16,185,129,0.45);
-            }}
-            #s5_links {{
-              width: 880px; background: rgba(15,23,42,0.94); border: 2px solid rgba(56,189,248,0.35);
-              border-radius: 26px; padding: 20px 32px; display: flex; justify-content: space-around;
-              font-size: 26px; font-weight: 800; color: #e2e8f0;
+            #camera-rig {{
+              width: 960px; height: 1180px; position: relative;
+              transform-style: preserve-3d;
             }}
 
-            /* شريط الكابشن السفلي */
-            .cap-bar {{
-              width: 960px; background: rgba(7,10,18,0.96);
-              border: 2px solid rgba(255,255,255,0.22); border-bottom: 9px solid #38bdf8;
-              border-radius: 28px; padding: 20px 32px; text-align: center;
-              box-shadow: 0 18px 40px rgba(0,0,0,0.92);
+            .scene {{
+              position: absolute; inset: 0; display: none;
+              flex-direction: column; justify-content: center; gap: 28px;
             }}
-            .cap-txt {{ font-size: 37px; font-weight: 900; color: #f8fafc; }}
-          </style></head><body>
-            <!-- عناصر المشهد 1 -->
-            <div id="s1_title" class="blk">
-              <div class="h-small">إعلانات ممولة بآلاف الدولارات..</div>
-              <div class="h-big">والنتيجة <span class="red-pill">عملاء يضيعون</span> وفوضى؟</div>
+
+            /* بطاقات Bento الزجاجية لعام 2026 */
+            .bento-card {{
+              background: linear-gradient(145deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 100%);
+              border: 1.5px solid rgba(255,255,255,0.14);
+              border-radius: 40px; padding: 36px 42px;
+              box-shadow: 0 30px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.2);
+              position: relative; overflow: hidden;
+            }}
+            .bento-row {{ display: flex; gap: 28px; width: 100%; }}
+            .bento-col {{ flex: 1; }}
+
+            .pill-tag {{
+              display: inline-flex; align-items: center; gap: 10px;
+              padding: 8px 22px; border-radius: 99px; font-size: 22px; font-weight: 800;
+              background: rgba(239,68,68,0.16); color: #fca5a5; border: 1px solid rgba(239,68,68,0.35);
+              margin-bottom: 18px;
+            }}
+            .hero-num {{ font-size: 78px; font-weight: 900; line-height: 1; letter-spacing: -2px; }}
+            .card-h {{ font-size: 38px; font-weight: 900; line-height: 1.25; margin-top: 8px; }}
+            .card-p {{ font-size: 25px; font-weight: 700; color: #94a3b8; margin-top: 8px; }}
+
+            /* كابشن الضبابية الحركي كلمة بكلمة (@ghalebgi + @khaam.hq Style) */
+            #kinetic-captions {{
+              position: absolute; bottom: 85px; left: 60px; right: 60px; height: 320px;
+              z-index: 25; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+              align-content: center; gap: 14px 20px; text-align: center;
+            }}
+            .k-word {{
+              font-size: 52px; font-weight: 900; line-height: 1.25;
+              padding: 4px 16px; border-radius: 20px;
+              transition: none; display: inline-block;
+            }}
+
+            /* مؤشر الماوس ثلاثي الأبعاد والانتقال الهندسي */
+            #cursor-layer {{
+              position: absolute; top: 0; left: 0; width: 1080px; height: 1920px;
+              pointer-events: none; z-index: 40; display: none;
+            }}
+            #wipe-layer {{
+              position: absolute; inset: 0; z-index: 50; pointer-events: none;
+              background: linear-gradient(135deg, #38bdf8, #10b981);
+              transform: translateX(100%);
+            }}
+          </style>
+          </head>
+          <body>
+            <div id="bg-layer"></div>
+            <div id="orb1"></div>
+            <div id="orb2"></div>
+            <div id="grid-overlay"></div>
+
+            <!-- شريط التقدم العلوي -->
+            <div id="top-hud">
+              <div class="step-bars">
+                <div class="s-bar"><div id="bf0" class="s-fill"></div></div>
+                <div class="s-bar"><div id="bf1" class="s-fill"></div></div>
+                <div class="s-bar"><div id="bf2" class="s-fill"></div></div>
+                <div class="s-bar"><div id="bf3" class="s-fill"></div></div>
+                <div class="s-bar"><div id="bf4" class="s-fill"></div></div>
+              </div>
+              <div id="step-num" class="step-badge">01 / 05</div>
             </div>
-            <div id="s1_fb" class="chaos-card blk">
-              <span class="ch-tag">🔥 نزيف ميزانية الإعلانات</span>
-              <div class="ch-num-row"><span class="mono">-$4,850</span> شهرياً</div>
-              <div class="ch-sub">إعلانات فيسبوك بدون ربط برمجي</div>
-              <div class="msg-row" style="border-right-color:#ef4444;color:#fca5a5">💸 نقرات مكلفة تضيع بدون متابعة فورية</div>
-            </div>
-            <div id="s1_wa" class="chaos-card wa blk">
-              <span class="ch-tag" style="color:#fb923c">📱 زحمة رسائل الواتساب</span>
-              <div class="ch-num-row" style="color:#fb923c"><span class="mono">+99</span> رسالة معلقة</div>
-              <div class="ch-sub">عملاء ينتظرون الرد منذ ساعات</div>
-              <div class="msg-row">💬 "أريد حجز موعد عاجل.. هل من مجيب؟"</div>
-            </div>
-            <div id="s1_paper" class="blk">
-              <div style="display:flex;align-items:center;gap:22px">
-                <img class="stress-thumb" src="{u_stress}"/>
-                <div>
-                  <div style="font-size:32px;font-weight:900;color:#fca5a5">📄 إدخال يدوي وملفات ورقية مبعثرة</div>
-                  <div style="font-size:23px;color:#cbd5e1;font-weight:700;margin-top:4px">تشتت الموظفين وضياع 64% من العملاء المحتملين</div>
+
+            <!-- المسرح ثلاثي الأبعاد للمشاهد الخمسة -->
+            <div id="viewport-3d">
+              <div id="camera-rig">
+
+                <!-- المشهد 1: الفوضى اليدوية ونزيف الإعلانات -->
+                <div id="sc-1" class="scene">
+                  <div id="s1-top" class="bento-card" style="text-align:center;border-color:rgba(239,68,68,0.4)">
+                    <span class="pill-tag">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      نزيف التسويق التقليدي بدون أتمتة
+                    </span>
+                    <div style="font-size:56px;font-weight:900;line-height:1.2">ميزانيتك تحترق.. والعملاء <span id="w-lost" style="display:inline-block;background:#ef4444;color:#fff;padding:2px 24px;border-radius:20px">يضيعون!</span></div>
+                  </div>
+
+                  <div class="bento-row">
+                    <!-- بطاقة استنزاف الميزانية الحية -->
+                    <div id="s1-right" class="bento-card bento-col" style="border-color:rgba(239,68,68,0.45)">
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span style="font-size:23px;font-weight:800;color:#fca5a5">ميزانية الإعلانات</span>
+                        <span class="mono" style="background:rgba(239,68,68,0.2);color:#f87171;padding:4px 14px;border-radius:12px;font-size:18px">META ADS</span>
+                      </div>
+                      <div id="burn-counter" class="Hero-num mono" style="font-size:72px;font-weight:900;color:#ef4444;margin:16px 0">-$1,200</div>
+                      <svg width="100%" height="90" viewBox="0 0 360 90">
+                        <path d="M10,15 Q90,25 160,55 T350,82" fill="none" stroke="#ef4444" stroke-width="6" stroke-linecap="round"/>
+                        <circle id="burn-dot" cx="350" cy="82" r="9" fill="#ffffff" stroke="#ef4444" stroke-width="5"/>
+                      </svg>
+                      <div class="card-p" style="color:#fca5a5">نقرات مكلفة بلا متابعة فورية</div>
+                    </div>
+
+                    <!-- بطاقة زحمة الواتساب الحية -->
+                    <div id="s1-left" class="bento-card bento-col" style="border-color:rgba(249,115,22,0.45)">
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span style="font-size:23px;font-weight:800;color:#fdba74">رسائل غير مقروءة</span>
+                        <span class="mono" style="background:rgba(249,115,22,0.2);color:#fb923c;padding:4px 14px;border-radius:12px;font-size:18px">WHATSAPP</span>
+                      </div>
+                      <div style="display:flex;align-items:baseline;gap:12px;margin:16px 0">
+                        <span id="wa-counter" class="mono" style="font-size:72px;font-weight:900;color:#fb923c">+12</span>
+                        <span style="font-size:32px;font-weight:900;color:#fff">رسالة معلقة</span>
+                      </div>
+                      <div id="wa-msg1" style="background:rgba(255,255,255,0.07);border-right:4px solid #fb923c;padding:12px 16px;border-radius:16px;font-size:20px;font-weight:700;margin-bottom:10px">
+                        "أريد حجز موعد عاجل.. هل من مجيب؟"
+                      </div>
+                      <div id="wa-msg2" style="background:rgba(239,68,68,0.15);border-right:4px solid #ef4444;padding:10px 16px;border-radius:16px;font-size:19px;font-weight:800;color:#fca5a5">
+                        غادر العميل لعدم الرد منذ 3 ساعات
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="s1-bot" class="bento-card" style="display:flex;align-items:center;justify-content:space-between;border-style:dashed;border-color:rgba(248,113,113,0.5)">
+                    <div>
+                      <div class="card-h" style="color:#fecaca">إدخال يدوي على ورق وجداول مبعثرة</div>
+                      <div class="card-p">ضياع 64% من العملاء المحتملين بسبب البطء البشري</div>
+                    </div>
+                    <div id="chaos-stamp" style="background:#ef4444;color:#fff;font-size:34px;font-weight:900;padding:14px 32px;border-radius:24px;box-shadow:0 15px 35px rgba(239,68,68,0.45)">
+                      فوضى إدارية
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style="font-size:40px;font-weight:900;color:#ef4444">⚠️ فوضى</div>
-            </div>
 
-            <!-- عناصر المشهد 2 -->
-            <div id="s2_logo" class="blk">
-              <div class="tk-brand">TEK<span>VIYO</span> 2.0</div>
-              <div class="tk-tag">⚡ نحن نبني (عقل) أعمالك الرقمي</div>
-            </div>
-            <div id="s2_dash" class="blk">
-              <div class="dash-top">
-                <span style="font-size:28px;font-weight:900;color:#38bdf8">🌐 منظومة TEKVIYO السحابية الموحدة (SaaS Core)</span>
-                <span style="background:rgba(74,222,128,0.18);color:#4ade80;padding:6px 18px;border-radius:14px;font-weight:900;font-size:20px">● متصلة لحظياً</span>
-              </div>
-              <div class="dash-grid">
-                <div class="d-box"><div class="d-val">0.1s</div><div class="d-lbl">سرعة التقاط العميل</div></div>
-                <div class="d-box"><div class="d-val">100%</div><div class="d-lbl">أتمتة بدون تدخل</div></div>
-                <div class="d-box"><div class="d-val">24/7</div><div class="d-lbl">متابعة وتأكيد فوري</div></div>
-              </div>
-              <div class="SaaS-pipeline">
-                <span>📢 إعلان الممول</span><span>⚡ Webhook فوري</span><span>🖥️ لوحة الموظف</span><span>💬 تأكيد واتساب</span>
-              </div>
-            </div>
+                <!-- المشهد 2: تغيير قواعد اللعبة (TEKVIYO Core) -->
+                <div id="sc-2" class="scene">
+                  <div id="s2-hero" class="bento-card" style="text-align:center;border-color:rgba(56,189,248,0.5);padding:48px">
+                    <div class="pill-tag" style="background:rgba(56,189,248,0.14);color:#38bdf8;border-color:rgba(56,189,248,0.4)">
+                      <span style="width:12px;height:12px;border-radius:50%;background:#4ade80;display:inline-block"></span>
+                      الجيل الجديد من أتمتة الأعمال 2026
+                    </div>
+                    <div class="en" style="font-size:96px;font-weight:800;letter-spacing:-3px;line-height:1;color:#fff;margin:10px 0">
+                      TEK<span style="color:#38bdf8">VIYO</span> <span style="font-size:52px;color:#4ade80">2.0</span>
+                    </div>
+                    <div style="font-size:44px;font-weight:900;color:#e2e8f0;margin-top:16px">
+                      نحن لا نصمم إعلانات فقط.. نحن نبني <span id="brain-word" style="color:#4ade80;display:inline-block">(عقل) أعمالك</span>
+                    </div>
+                  </div>
 
-            <!-- عناصر المشهد 3 -->
-            <div id="s3_ad" class="blk">
-              <div style="display:flex;align-items:center;gap:20px">
-                <img class="prod-img" src="{u_clinic}"/>
-                <div>
-                  <span style="color:#38bdf8;font-size:20px;font-weight:900">📱 الخطوة 1 • هاتف العميل (إعلان فيسبوك)</span>
-                  <div style="font-size:33px;font-weight:900;color:#fff;margin-top:4px">عيادة الابتسامة الرقمية • احجز الآن</div>
+                  <!-- شبكة الربط العصبي الحية -->
+                  <div id="s2-grid" class="bento-card" style="border-color:rgba(74,222,128,0.4)">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:26px">
+                      <span style="font-size:28px;font-weight:900;color:#38bdf8">البنية السحابية الموحدة للنظام</span>
+                      <span class="mono" style="color:#4ade80;font-size:22px;font-weight:800">● AI CORE ACTIVE</span>
+                    </div>
+                    <div class="bento-row" style="text-align:center">
+                      <div style="flex:1;background:rgba(255,255,255,0.04);padding:26px;border-radius:28px;border:1px solid rgba(56,189,248,0.3)">
+                        <div id="s2-stat1" class="mono" style="font-size:56px;font-weight:900;color:#38bdf8">0.1s</div>
+                        <div style="font-size:24px;font-weight:800;margin-top:8px">سرعة التقاط العميل</div>
+                      </div>
+                      <div style="flex:1;background:rgba(255,255,255,0.04);padding:26px;border-radius:28px;border:1px solid rgba(74,222,128,0.35)">
+                        <div id="s2-stat2" class="mono" style="font-size:56px;font-weight:900;color:#4ade80">100%</div>
+                        <div style="font-size:24px;font-weight:800;margin-top:8px">أتمتة بلا تدخل بشري</div>
+                      </div>
+                      <div style="flex:1;background:rgba(255,255,255,0.04);padding:26px;border-radius:28px;border:1px solid rgba(56,189,248,0.3)">
+                        <div class="mono" style="font-size:56px;font-weight:900;color:#facc15">24/7</div>
+                        <div style="font-size:24px;font-weight:800;margin-top:8px">تأكيد ومتابعة فورية</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                <!-- المشهد 3: السحر التقني (The Magic Webhooks) -->
+                <div id="sc-3" class="scene" style="gap:22px">
+                  <!-- المحطة 1: إعلان العميل -->
+                  <div id="s3-step1" class="bento-card" style="display:flex;align-items:center;justify-content:space-between;border-color:rgba(56,189,248,0.5)">
+                    <div style="display:flex;align-items:center;gap:24px">
+                      <div style="width:86px;height:86px;border-radius:24px;background:rgba(56,189,248,0.15);display:flex;align-items:center;justify-content:center;border:2px solid #38bdf8">
+                        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                      </div>
+                      <div>
+                        <div class="mono" style="font-size:20px;color:#38bdf8;font-weight:800">01 • META LEAD AD</div>
+                        <div style="font-size:34px;font-weight:900;color:#fff">إعلان عيادة الابتسامة الرقمية</div>
+                        <div style="font-size:22px;color:#94a3b8;font-weight:700">العميل يضغط زر التسجيل من هاتفه</div>
+                      </div>
+                    </div>
+                    <div id="s3-btn" style="background:linear-gradient(135deg,#0284c7,#38bdf8);color:#fff;padding:18px 36px;border-radius:24px;font-size:28px;font-weight:900;box-shadow:0 15px 35px rgba(56,189,248,0.4)">
+                      تسجيل الموعد
+                    </div>
+                  </div>
+
+                  <!-- أنبوب الليزر للـ Webhook -->
+                  <div style="height:70px;display:flex;align-items:center;justify-content:center;position:relative">
+                    <div style="width:6px;height:100%;background:rgba(255,255,255,0.12);border-radius:99px;position:relative;overflow:hidden">
+                      <div id="webhook-beam" style="position:absolute;top:0;left:0;right:0;height:0%;background:linear-gradient(180deg,#38bdf8,#4ade80)"></div>
+                    </div>
+                    <div id="webhook-pill" class="mono" style="position:absolute;background:#0f172a;border:2px solid #4ade80;color:#4ade80;padding:6px 22px;border-radius:99px;font-size:20px;font-weight:800;box-shadow:0 0 30px rgba(74,222,128,0.5)">
+                      ⚡ WEBHOOK • 0.1s
+                    </div>
+                  </div>
+
+                  <!-- المحطة 2: شاشة السكرتيرة -->
+                  <div id="s3-step2" class="bento-card" style="display:flex;align-items:center;justify-content:space-between;border-color:rgba(16,185,129,0.55);background:linear-gradient(145deg,rgba(6,78,59,0.45),rgba(5,24,18,0.8))">
+                    <div style="display:flex;align-items:center;gap:24px">
+                      <div style="width:86px;height:86px;border-radius:24px;background:rgba(16,185,129,0.2);display:flex;align-items:center;justify-content:center;border:2px solid #10b981">
+                        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                      </div>
+                      <div>
+                        <div class="mono" style="font-size:20px;color:#4ade80;font-weight:800">02 • RECEPTION DASHBOARD</div>
+                        <div style="font-size:34px;font-weight:900;color:#fff">مريض جديد في شاشة السكرتيرة</div>
+                        <div style="font-size:22px;color:#a7f3d0;font-weight:700">الاسم ورقم الهاتف والخدمة محفوظة تلقائياً</div>
+                      </div>
+                    </div>
+                    <div class="mono" style="font-size:44px;font-weight:900;color:#4ade80">LIVE</div>
+                  </div>
+
+                  <!-- المحطة 3: رسالة الواتساب الأوتوماتيكية -->
+                  <div id="s3-step3" class="bento-card" style="display:flex;align-items:center;justify-content:space-between;border-color:rgba(74,222,128,0.6)">
+                    <div style="display:flex;align-items:center;gap:24px">
+                      <div style="width:86px;height:86px;border-radius:24px;background:#10b981;display:flex;align-items:center;justify-content:center">
+                        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#051812" stroke-width="2.8"><polyline points="20 6 9 17 4 12"/></svg>
+                      </div>
+                      <div>
+                        <div class="mono" style="font-size:20px;color:#4ade80;font-weight:800">03 • AUTO WHATSAPP API</div>
+                        <div style="font-size:34px;font-weight:900;color:#fff">"أهلاً بك! تم تأكيد موعدك بنجاح"</div>
+                        <div style="font-size:22px;color:#94a3b8;font-weight:700">تصل للعميل في ثانية واحدة بدون تدخل بشري</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- المشهد 4: الوضع النهاري النظيف (@ghalebgi Light Mode Bento Grid) -->
+                <div id="sc-4" class="scene">
+                  <div style="text-align:center;margin-bottom:8px">
+                    <span class="mono" style="background:#0284c7;color:#fff;padding:6px 22px;border-radius:99px;font-size:20px;font-weight:800">CLOUD ECOSYSTEM 2026</span>
+                    <div style="font-size:54px;font-weight:900;color:#0f172a;margin-top:10px">أنظمة سحابية مخصصة لكل قطاع</div>
+                  </div>
+
+                  <div id="s4-c1" class="bento-card" style="background:#ffffff;border:2px solid #e2e8f0;box-shadow:0 25px 50px rgba(15,23,42,0.08);display:flex;align-items:center;justify-content:space-between;padding:28px 38px">
+                    <div>
+                      <span class="mono" style="color:#0284c7;font-size:20px;font-weight:800">01 / DENTACARE CLOUD</span>
+                      <div style="font-size:36px;font-weight:900;color:#0f172a">منظومة العيادات والمراكز الطبية</div>
+                      <div style="font-size:23px;font-weight:700;color:#475569">ملفات المرضى، أتمتة المواعيد، وتنبيهات الواتساب</div>
+                    </div>
+                    <div class="mono" style="background:#e0f2fe;color:#0369a1;padding:14px 26px;border-radius:20px;font-size:24px;font-weight:900">HEALTH</div>
+                  </div>
+
+                  <div id="s4-c2" class="bento-card" style="background:#ffffff;border:2px solid #e2e8f0;box-shadow:0 25px 50px rgba(15,23,42,0.08);display:flex;align-items:center;justify-content:space-between;padding:28px 38px">
+                    <div>
+                      <span class="mono" style="color:#059669;font-size:20px;font-weight:800">02 / REAL ESTATE CRM</span>
+                      <div style="font-size:36px;font-weight:900;color:#0f172a">منظومة المؤسسات العقارية</div>
+                      <div style="font-size:23px;font-weight:700;color:#475569">ربط الحملات الإعلانية بالمستشارين وتتبع المبيعات لحظياً</div>
+                    </div>
+                    <div class="mono" style="background:#d1fae5;color:#047857;padding:14px 26px;border-radius:20px;font-size:24px;font-weight:900">ESTATE</div>
+                  </div>
+
+                  <div id="s4-c3" class="bento-card" style="background:#ffffff;border:2px solid #e2e8f0;box-shadow:0 25px 50px rgba(15,23,42,0.08);display:flex;align-items:center;justify-content:space-between;padding:28px 38px">
+                    <div>
+                      <span class="mono" style="color:#d97706;font-size:20px;font-weight:800">03 / RETAIL & ENTERPRISE</span>
+                      <div style="font-size:36px;font-weight:900;color:#0f172a">مبيعات التجزئة ومراكز الأعمال</div>
+                      <div style="font-size:23px;font-weight:700;color:#475569">تقارير مالية، إدارة فروع، ذكاء GEO، وتطبيق جوال</div>
+                    </div>
+                    <div class="mono" style="background:#fef3c7;color:#b45309;padding:14px 26px;border-radius:20px;font-size:24px;font-weight:900">RETAIL</div>
+                  </div>
+                </div>
+
+                <!-- المشهد 5: الخاتمة الفخمة والدعوة لاتخاذ إجراء -->
+                <div id="sc-5" class="scene" style="text-align:center">
+                  <div id="s5-card" class="bento-card" style="padding:56px 44px;border-color:rgba(56,189,248,0.55);background:linear-gradient(180deg,rgba(15,23,42,0.92),rgba(5,8,17,0.96))">
+                    <div class="en" style="font-size:104px;font-weight:800;letter-spacing:-3px;color:#fff;line-height:1">
+                      TEK<span style="color:#38bdf8">VIYO</span>
+                    </div>
+                    <div style="font-size:56px;font-weight:900;color:#fff;margin:26px 0 14px;line-height:1.2">
+                      لا تسوّق فقط.. <span style="color:#4ade80">قُد سوقك بذكاء.</span>
+                    </div>
+                    <div style="font-size:28px;color:#94a3b8;font-weight:700;margin-bottom:42px">
+                      ابنِ منظومة سحابية متكاملة لا تُقهر وأتمت أعمالك بالكامل
+                    </div>
+
+                    <div id="s5-cta" style="background:linear-gradient(90deg,#10b981,#38bdf8);color:#041019;padding:28px 44px;border-radius:30px;font-size:40px;font-weight:900;box-shadow:0 25px 60px rgba(16,185,129,0.45);display:inline-block;width:90%">
+                      احجز استشارتك التقنية المجانية الآن
+                    </div>
+
+                    <div style="display:flex;justify-content:center;gap:40px;margin-top:36px;font-size:26px;font-weight:800;color:#cbd5e1">
+                      <span class="mono" style="color:#38bdf8">www.tekviyo.com</span>
+                      <span>•</span>
+                      <span>أتمتة سحابية متكاملة</span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
-              <div class="ad-btn">اضغط للتسجيل 👆</div>
-            </div>
-            <div id="s3_popup" class="blk">
-              <div>
-                <span class="pop-badge">🔔 الخطوة 2 • إشعار فوري في شاشة السكرتيرة (Webhook)</span>
-                <div style="font-size:34px;font-weight:900;color:#fff;margin-top:10px">مريض جديد من فيسبوك (تم الحفظ تلقائياً)</div>
-                <div style="font-size:22px;color:#a7f3d0;font-weight:700">الاسم، رقم الهاتف، والخدمة المطلوبة جاهزة أمام الموظف</div>
-              </div>
-              <div style="font-size:46px;font-weight:900;color:#4ade80;font-family:'JetBrains Mono'">0.1s</div>
-            </div>
-            <div id="s3_wa_ok" class="blk">
-              <div>
-                <span style="color:#4ade80;font-size:21px;font-weight:900">💬 الخطوة 3 • رسالة واتساب أوتوماتيكية للعميل</span>
-                <div style="font-size:33px;font-weight:900;color:#fff;margin-top:4px">"أهلاً بك! تم تأكيد موعدك بنجاح ✅"</div>
-              </div>
-              <div style="background:#10b981;color:#04130d;padding:10px 22px;border-radius:16px;font-size:23px;font-weight:900">أُرسلت في ثانية!</div>
             </div>
 
-            <!-- عناصر المشهد 4 -->
-            <div id="s4_p1" class="prod-card blk">
-              <div class="prod-left">
-                <img class="prod-img" src="{u_clinic}"/>
-                <div><div class="p-title">🦷 نظام العيادات الطبية (DentaCare)</div><div class="p-sub">ملفات المرضى، المواعيد المؤتمتة، وتنبيهات الواتساب</div></div>
-              </div>
-              <div class="p-tag">HEALTH CLOUD</div>
-            </div>
-            <div id="s4_p2" class="prod-card green blk">
-              <div class="prod-left">
-                <img class="prod-img" src="{u_estate}"/>
-                <div><div class="p-title">🏢 منظومة الشركات العقارية</div><div class="p-sub">ربط حملات العقارات مع المستشارين وتتبع المبيعات</div></div>
-              </div>
-              <div class="p-tag" style="color:#4ade80;background:rgba(74,222,128,0.12)">REAL ESTATE</div>
-            </div>
-            <div id="s4_p3" class="prod-card gold blk">
-              <div class="prod-left">
-                <img class="prod-img" src="{u_retail}"/>
-                <div><div class="p-title">🛍️ نظام مبيعات التجزئة والمراكز</div><div class="p-sub">إدارة المخزون، الفروع، والولاء السحابي المتكامل</div></div>
-              </div>
-              <div class="p-tag" style="color:#facc15;background:rgba(250,204,21,0.12)">RETAIL POS</div>
-            </div>
-            <div id="s4_f1" class="feat-pill blk">📊 تقارير مالية لحظية</div>
-            <div id="s4_f2" class="feat-pill blk">🌐 إدارة فروع مركزية</div>
-            <div id="s4_f3" class="feat-pill blk">🤖 الذكاء الاصطناعي GEO</div>
-            <div id="s4_f4" class="feat-pill blk">📱 تطبيق جوال متكامل</div>
+            <!-- كابشن الضبابية الحركي كلمة بكلمة (Blur-Reveal Kinetic Typography) -->
+            <div id="kinetic-captions"></div>
 
-            <!-- عناصر المشهد 5 -->
-            <div id="s5_hero" class="blk">
-              <div class="tk-brand">TEK<span>VIYO</span></div>
-              <div class="cta-slogan">لا تسوّق فقط.. <span>قُد سوقك بذكاء.</span></div>
-              <div style="font-size:27px;color:#94a3b8;font-weight:700">الجيل الجديد من أنظمة الأتمتة والربط السحابي للأعمال</div>
-            </div>
-            <div id="s5_btn" class="blk">🚀 احجز استشارتك التقنية المجانية الآن</div>
-            <div id="s5_links" class="blk">
-              <span>🌐 www.tekviyo.com</span>
-              <span>💬 أتمتة واتساب وإعلانات</span>
-              <span>📞 تواصل مباشر</span>
-            </div>
+            <!-- مؤشر الماوس التفاعلي -->
+            <svg id="cursor-layer" viewBox="0 0 1080 1920">
+              <circle id="click-ring" cx="0" cy="0" r="38" fill="none" stroke="#4ade80" stroke-width="5" opacity="0"/>
+              <g id="cursor-arrow" transform="translate(500,500)">
+                <path d="M0,0 L0,46 L14,34 L26,56 L36,50 L24,28 L42,28 Z" fill="#ffffff" stroke="#0f172a" stroke-width="3"/>
+              </g>
+            </svg>
 
-            {caps_html}
-          </body></html>"""
+            <div id="wipe-layer"></div>
 
-          Path("ui.html").write_text(html_ui, encoding="utf-8")
+            <script>
+              const SCENES = {scenes_json};
 
-          ui_ids = [
-              "s1_title", "s1_fb", "s1_wa", "s1_paper",
-              "s2_logo", "s2_dash",
-              "s3_ad", "s3_popup", "s3_wa_ok",
-              "s4_p1", "s4_p2", "s4_p3", "s4_f1", "s4_f2", "s4_f3", "s4_f4",
-              "s5_hero", "s5_btn", "s5_links"
-          ] + [f"cap_{k}_{ab}" for k in range(1, 6) for ab in ("a", "b")]
+              function easeOutBack(x) {{
+                x = Math.max(0, Math.min(1, x));
+                return 1 + 2.3 * Math.pow(x - 1, 3) + 1.3 * Math.pow(x - 1, 2);
+              }}
 
-          with sync_playwright() as p:
-              browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
-              page = browser.new_page(viewport={"width": 1080, "height": 5800})
-              page.goto(f"file://{os.path.abspath('ui.html')}", wait_until="networkidle")
-              page.wait_for_timeout(600)
-              for uid in ui_ids:
-                  page.locator(f"#{uid}").screenshot(path=f"ui/{uid}.png", omit_background=True)
-              browser.close()
+              window.renderFrame = function(scIdx, prog, tGlobal, tScene, durScene) {{
+                // 1. تحديث شريط الخطوات العلوي
+                document.getElementById('step-num').innerText = `0${{scIdx+1}} / 05`;
+                for (let i = 0; i < 5; i++) {{
+                  const fill = document.getElementById('bf' + i);
+                  fill.style.width = (i < scIdx) ? '100%' : (i === scIdx ? (prog * 100) + '%' : '0%');
+                  fill.style.background = (scIdx === 3) ? '#0284c7' : (scIdx === 0 ? '#ef4444' : '#38bdf8');
+                }}
 
-          ui = {uid: Image.open(f"ui/{uid}.png").convert("RGBA") for uid in ui_ids}
+                // 2. تبديل الخلفية (الوضع النهاري اللؤلؤي في المشهد 4 مثل @ghalebgi، والداكن الفخم في البقية)
+                const bg = document.getElementById('bg-layer');
+                const o1 = document.getElementById('orb1');
+                const o2 = document.getElementById('orb2');
+                const stepNum = document.getElementById('step-num');
+                if (scIdx === 0) {{
+                  bg.style.background = 'radial-gradient(circle at 50% 25%, #2a0a18 0%, #050811 75%)';
+                  o1.style.background = '#ef4444'; o2.style.background = '#f97316';
+                  stepNum.style.color = '#f8fafc'; stepNum.style.background = 'rgba(255,255,255,0.08)';
+                }} else if (scIdx === 3) {{
+                  bg.style.background = 'linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%)';
+                  o1.style.background = '#bae6fd'; o2.style.background = '#a7f3d0';
+                  stepNum.style.color = '#0f172a'; stepNum.style.background = 'rgba(15,23,42,0.08)';
+                }} else {{
+                  bg.style.background = 'radial-gradient(circle at 50% 25%, #0c2444 0%, #040711 75%)';
+                  o1.style.background = '#0284c7'; o2.style.background = '#10b981';
+                  stepNum.style.color = '#f8fafc'; stepNum.style.background = 'rgba(255,255,255,0.08)';
+                }}
 
-          print("🎬 [3/5] بدء الرندر المتزامن مع الصوت الصافي...", flush=True)
-          W, H = 1080, 1920
-          y_i, x_i = np.ogrid[:H, :W]
-          d_mid = np.clip(np.sqrt((x_i - W*0.5)**2 + (y_i - H*0.45)**2) / (H*0.58), 0, 1)
+                o1.style.transform = `translate(${{Math.sin(tGlobal*1.5)*45}}px, ${{Math.cos(tGlobal*1.2)*45}}px)`;
+                o2.style.transform = `translate(${{Math.cos(tGlobal*1.4)*45}}px, ${{Math.sin(tGlobal*1.6)*45}}px)`;
 
-          bg_chaos = Image.fromarray(np.stack([
-              (14 + 52*(1-d_mid)).astype(np.uint8),
-              (8 + 10*(1-d_mid)).astype(np.uint8),
-              (14 + 18*(1-d_mid)).astype(np.uint8)
-          ], axis=-1), "RGB").convert("RGBA")
+                // 3. إظهار المشهد النشط وتحريك الكاميرا ثلاثية الأبعاد (3D Camera Rig)
+                for (let i = 1; i <= 5; i++) {{
+                  document.getElementById('sc-' + i).style.display = (i === scIdx + 1) ? 'flex' : 'none';
+                }}
 
-          bg_tech = Image.fromarray(np.stack([
-              (6 + 16*(1-d_mid)).astype(np.uint8),
-              (12 + 34*(1-d_mid)).astype(np.uint8),
-              (24 + 72*(1-d_mid)).astype(np.uint8)
-          ], axis=-1), "RGB").convert("RGBA")
+                const rig = document.getElementById('camera-rig');
+                const rotX = Math.sin(tGlobal * 1.6) * 3.5;
+                const rotY = Math.cos(tGlobal * 1.3) * 4.5;
+                let camScale = 1.0;
+                let camY = 0;
 
-          bg_cta = Image.fromarray(np.stack([
-              (7 + 18*(1-d_mid)).astype(np.uint8),
-              (16 + 50*(1-d_mid)).astype(np.uint8),
-              (34 + 98*(1-d_mid)).astype(np.uint8)
-          ], axis=-1), "RGB").convert("RGBA")
+                const cursorLayer = document.getElementById('cursor-layer');
+                const cursorArrow = document.getElementById('cursor-arrow');
+                const clickRing = document.getElementById('click-ring');
+                cursorLayer.style.display = 'none';
 
-          for bg_im, col_g in [(bg_chaos, (239,68,68,24)), (bg_tech, (56,189,248,24)), (bg_cta, (74,222,128,26))]:
-              dr = ImageDraw.Draw(bg_im)
-              for gx in range(60, W, 64):
-                  for gy in range(120, H-100, 64):
-                      dr.ellipse([gx-1.5, gy-1.5, gx+1.5, gy+1.5], fill=col_g)
+                if (scIdx === 0) {{
+                  const pTop = easeOutBack(tScene / 0.45);
+                  document.getElementById('s1-top').style.transform = `scale(${{pTop}}) translateY(${{(1-pTop)*50}}px)`;
+                  const burnVal = Math.min(4850, Math.floor(1200 + prog * 4600));
+                  document.getElementById('burn-counter').innerText = `-$${{burnVal.toLocaleString()}}`;
+                  const waVal = Math.min(99, Math.floor(12 + prog * 115));
+                  document.getElementById('wa-counter').innerText = `+${{waVal}}`;
+                  const shake = (prog > 0.45) ? Math.sin(tGlobal * 32) * 6 : 0;
+                  document.getElementById('s1-left').style.transform = `translateX(${{shake}}px)`;
+                  document.getElementById('w-lost').style.transform = `scale(${{1 + Math.sin(tGlobal*10)*0.06}}) rotate(${{Math.sin(tGlobal*8)*2}}deg)`;
+                }}
+                else if (scIdx === 1) {{
+                  const pHero = easeOutBack(tScene / 0.5);
+                  document.getElementById('s2-hero').style.transform = `scale(${{pHero}})`;
+                  const pGrid = easeOutBack(Math.max(0, tScene - 0.5) / 0.5);
+                  document.getElementById('s2-grid').style.transform = `translateY(${{(1-pGrid)*80}}px) scale(${{Math.max(0.01, pGrid)}})`;
+                  document.getElementById('brain-word').style.transform = `scale(${{1 + Math.sin(tGlobal*8)*0.08}})`;
+                }}
+                else if (scIdx === 2) {{
+                  // كاميرا تفاعلية تتبع نقرة الإعلان ثم تنزل مع شعاع الـ Webhook
+                  if (prog < 0.38) {{
+                    camScale = 1.08; camY = 110;
+                  }} else if (prog < 0.65) {{
+                    camScale = 1.05; camY = 0;
+                  }} else {{
+                    camScale = 1.08; camY = -110;
+                  }}
+                  const beamH = Math.max(0, Math.min(100, ((prog - 0.32) / 0.25) * 100));
+                  document.getElementById('webhook-beam').style.height = beamH + '%';
+                  document.getElementById('s3-btn').style.transform = (prog >= 0.30 && prog <= 0.37) ? 'scale(0.91)' : 'scale(1)';
 
-          def ease_out_back(x):
-              x = float(np.clip(x, 0.0, 1.0))
-              return 1.0 + 2.2 * ((x - 1.0)**3) + 1.2 * ((x - 1.0)**2)
+                  const p2 = easeOutBack((prog - 0.42) * 3.2);
+                  document.getElementById('s3-step2').style.transform = `scale(${{Math.max(0.01, p2)}})`;
+                  document.getElementById('s3-step2').style.opacity = Math.max(0, Math.min(1, (prog - 0.40)*5));
 
-          def paste_c(canvas, im, cx, cy, scale=1.0, alpha=1.0):
-              if alpha <= 0.01 or scale <= 0.1:
-                  return
-              w = im if abs(scale - 1.0) < 0.01 else im.resize((max(10, int(im.width*scale)), max(10, int(im.height*scale))), Image.Resampling.BILINEAR)
-              if alpha < 0.99:
-                  w = w.copy()
-                  w.putalpha(w.getchannel("A").point(lambda p: int(p * alpha)))
-              canvas.paste(w, (int(cx - w.width/2), int(cy - w.height/2)), w)
+                  const p3 = easeOutBack((prog - 0.62) * 3.2);
+                  document.getElementById('s3-step3').style.transform = `scale(${{Math.max(0.01, p3)}})`;
+                  document.getElementById('s3-step3').style.opacity = Math.max(0, Math.min(1, (prog - 0.60)*5));
 
-          def draw_cursor(draw_obj, cx, cy, clicked=False):
-              if clicked:
-                  draw_obj.ellipse([cx-36, cy-36, cx+36, cy+36], outline=(255, 255, 255, 230), width=4)
-              pts = [(cx, cy), (cx+38, cy+16), (cx+22, cy+24), (cx+32, cy+42), (cx+22, cy+47), (cx+12, cy+29), (cx, cy+40)]
-              draw_obj.polygon(pts, fill=(255, 255, 255, 255), outline=(9, 13, 24, 255))
+                  if (prog < 0.42) {{
+                    cursorLayer.style.display = 'block';
+                    const cp = Math.min(1, prog / 0.31);
+                    const cx = 680 - 460 * cp;
+                    const cy = 680 - 260 * cp;
+                    cursorArrow.setAttribute('transform', `translate(${{cx}}, ${{cy}})`);
+                    if (prog >= 0.31 && prog <= 0.38) {{
+                      clickRing.setAttribute('cx', cx); clickRing.setAttribute('cy', cy);
+                      clickRing.setAttribute('opacity', '0.9');
+                    }} else {{
+                      clickRing.setAttribute('opacity', '0');
+                    }}
+                  }}
+                }}
+                else if (scIdx === 3) {{
+                  // انبثاق ثلاثي الأبعاد لبطاقات الوضع النهاري (@ghalebgi Flip)
+                  ['s4-c1', 's4-c2', 's4-c3'].forEach((id, idx) => {{
+                    const st = idx * 0.18;
+                    const p = easeOutBack((prog - st) * 3.0);
+                    const el = document.getElementById(id);
+                    const rx = (1 - Math.min(1, p)) * 55;
+                    el.style.transform = `perspective(1000px) rotateX(${{rx}}deg) scale(${{Math.max(0.01, p)}})`;
+                    el.style.opacity = Math.max(0, Math.min(1, (prog - st)*4));
+                  }});
+                }}
+                else if (scIdx === 4) {{
+                  const p5 = easeOutBack(tScene / 0.5);
+                  document.getElementById('s5-card').style.transform = `scale(${{p5}})`;
+                  const clicked = (prog >= 0.52 && prog <= 0.62);
+                  document.getElementById('s5-cta').style.transform = clicked ? 'scale(0.95)' : `scale(${{1 + Math.sin(tGlobal*6)*0.02}})`;
 
-          fps = 30
+                  if (prog >= 0.35) {{
+                    cursorLayer.style.display = 'block';
+                    const cp = Math.min(1, (prog - 0.35) / 0.18);
+                    // الماوس ينقر على الزاوية اليسرى السفلية للزر بعيداً تماماً عن النص العربي!
+                    const cx = 260 - 95 * cp;
+                    const cy = 1280 - 255 * cp;
+                    cursorArrow.setAttribute('transform', `translate(${{cx}}, ${{cy}})`);
+                    if (clicked) {{
+                      clickRing.setAttribute('cx', cx); clickRing.setAttribute('cy', cy);
+                      clickRing.setAttribute('opacity', '0.95');
+                    }} else {{
+                      clickRing.setAttribute('opacity', '0');
+                    }}
+                  }}
+                }}
+
+                rig.style.transform = `translateY(${{camY}}px) scale(${{camScale}}) rotateX(${{rotX}}deg) rotateY(${{rotY}}deg)`;
+
+                // 4. كابشن الضبابية الحركي كلمة بكلمة (Blur-Reveal Word-by-Word)
+                const words = SCENES[scIdx].words;
+                const activeWordIdx = Math.min(words.length - 1, Math.floor(prog * words.length * 1.08));
+                const capBox = document.getElementById('kinetic-captions');
+                const isLight = (scIdx === 3);
+                let htmlW = '';
+                for (let w = 0; w < words.length; w++) {{
+                  const dist = w - activeWordIdx;
+                  let blur = 0, op = 1, sc = 1.0, bgW = 'transparent', colW = isLight ? '#0f172a' : '#f8fafc';
+                  if (dist === 0) {{
+                    sc = 1.16;
+                    bgW = (scIdx === 0) ? '#ef4444' : (isLight ? '#0284c7' : '#10b981');
+                    colW = (scIdx === 0 || isLight) ? '#ffffff' : '#04130d';
+                  }} else if (dist > 0) {{
+                    blur = Math.min(10, dist * 3.5);
+                    op = Math.max(0.18, 0.65 - dist * 0.12);
+                  }} else {{
+                    op = 0.82;
+                  }}
+                  htmlW += `<span class="k-word" style="filter:blur(${{blur}}px);opacity:${{op}};transform:scale(${{sc}});background:${{bgW}};color:${{colW}}">${{words[w]}}</span>`;
+                }}
+                capBox.innerHTML = htmlW;
+
+                // 5. انتقال المسح الهندسي الخاطف في بداية كل مشهد جديد
+                const wipe = document.getElementById('wipe-layer');
+                if (tScene < 0.22 && scIdx > 0) {{
+                  const wp = tScene / 0.22;
+                  wipe.style.transform = `translateX(${{(wp * 200) - 100}}%)`;
+                }} else {{
+                  wipe.style.transform = 'translateX(120%)';
+                }}
+              }};
+            </script>
+          </body>
+          </html>"""
+
+          Path("stage_2026.html").write_text(html_stage, encoding="utf-8")
+
+          print("🎬 [3/4] رندر إطارات الجيل الجديد 2026 مباشرة عبر محرك Chromium...", flush=True)
+          fps = 24
           total_frames = int(total_dur * fps)
           s_starts = [0.0]
           for d in scene_durations:
@@ -559,148 +701,48 @@ jobs:
 
           ffmpeg_proc = subprocess.Popen([
               "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-              "-f", "rawvideo", "-vcodec", "rawvideo",
-              "-s", f"{W}x{H}", "-pix_fmt", "rgba", "-r", str(fps), "-i", "-",
-              "-i", "final_audio.aac", "-c:v", "libx264", "-preset", "superfast",
-              "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "copy",
-              "-shortest", "TEKVIYO_2_Launch_Reel.mp4"
+              "-f", "image2pipe", "-vcodec", "mjpeg", "-r", str(fps), "-i", "-",
+              "-i", "final_audio.aac",
+              "-vf", "fps=60",
+              "-c:v", "libx264", "-preset", "superfast", "-crf", "16", "-pix_fmt", "yuv420p",
+              "-c:a", "copy", "-shortest", "TEKVIYO_2026_Edition.mp4"
           ], stdin=subprocess.PIPE)
 
-          qa_frames = {}
+          qa_snapshots = {}
           t0 = time.time()
 
-          for i in range(total_frames):
-              t = i / fps
-              sc_idx = 0
-              for k in range(5):
-                  if t >= s_starts[k]:
-                      sc_idx = k
-              t_sc = t - s_starts[sc_idx]
-              dur_sc = scene_durations[sc_idx]
-              prog_sc = float(np.clip(t_sc / max(0.1, dur_sc), 0.0, 1.0))
+          with sync_playwright() as p:
+              browser = p.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
+              page = browser.new_page(viewport={"width": 1080, "height": 1920})
+              page.goto(f"file://{os.path.abspath('stage_2026.html')}", wait_until="networkidle")
+              page.wait_for_timeout(400)
 
-              if sc_idx == 0:
-                  canvas = bg_chaos.copy()
-                  p0 = ease_out_back(t_sc / 0.45)
-                  paste_c(canvas, ui["s1_title"], W/2, 260 - (1-p0)*60, max(0.2, p0))
+              for i in range(total_frames):
+                  t = i / fps
+                  sc_idx = 0
+                  for k in range(5):
+                      if t >= s_starts[k]:
+                          sc_idx = k
+                  t_sc = t - s_starts[sc_idx]
+                  dur_sc = scene_durations[sc_idx]
+                  prog_sc = float(max(0.0, min(1.0, t_sc / max(0.1, dur_sc))))
 
-                  if prog_sc >= 0.08:
-                      p1 = ease_out_back((prog_sc - 0.08) * dur_sc / 0.45)
-                      shake_x = math.sin(t * 24.0) * 5.0 if prog_sc > 0.35 else 0.0
-                      paste_c(canvas, ui["s1_fb"], 785 + shake_x, 730, max(0.2, p1))
-                  if prog_sc >= 0.32:
-                      p2 = ease_out_back((prog_sc - 0.32) * dur_sc / 0.45)
-                      shake_y = math.cos(t * 28.0) * 5.0 if prog_sc > 0.45 else 0.0
-                      paste_c(canvas, ui["s1_wa"], 295, 730 + shake_y, max(0.2, p2))
-                  if prog_sc >= 0.58:
-                      p3 = ease_out_back((prog_sc - 0.58) * dur_sc / 0.45)
-                      paste_c(canvas, ui["s1_paper"], W/2 + math.sin(t*30)*6.0, 1230, max(0.2, p3))
+                  page.evaluate(f"window.renderFrame({sc_idx}, {prog_sc:.4f}, {t:.4f}, {t_sc:.4f}, {dur_sc:.4f})")
+                  jpg_bytes = page.screenshot(type="jpeg", quality=94)
 
-              elif sc_idx == 1:
-                  canvas = bg_tech.copy()
-                  dr = ImageDraw.Draw(canvas)
-                  line_prog = float(np.clip((prog_sc - 0.12) / 0.35, 0.0, 1.0))
-                  for lx in [200, 370, 540, 710, 880]:
-                      end_y = int(500 + 520 * line_prog)
-                      dr.line([(W//2, 460), (lx, end_y)], fill=(56, 189, 248, 150), width=4)
-                      dr.ellipse([lx-8, end_y-8, lx+8, end_y+8], fill=(74, 222, 128, 250))
+                  if abs(prog_sc - 0.65) < 0.03 and sc_idx not in qa_snapshots:
+                      Path(f"qa_{sc_idx}.jpg").write_bytes(jpg_bytes)
+                      qa_snapshots[sc_idx] = f"qa_{sc_idx}.jpg"
 
-                  p_logo = ease_out_back(t_sc / 0.5)
-                  paste_c(canvas, ui["s2_logo"], W/2, 410 + math.sin(t*3.0)*6.0, max(0.2, p_logo))
-                  if prog_sc >= 0.32:
-                      p_dash = ease_out_back((prog_sc - 0.32) * dur_sc / 0.5)
-                      paste_c(canvas, ui["s2_dash"], W/2, 1070 + math.cos(t*2.5)*5.0, max(0.2, p_dash))
+                  try:
+                      ffmpeg_proc.stdin.write(jpg_bytes)
+                  except BrokenPipeError:
+                      break
 
-              elif sc_idx == 2:
-                  canvas = bg_tech.copy()
-                  dr = ImageDraw.Draw(canvas)
-                  dr.line([(W//2, 340), (W//2, 1250)], fill=(30, 41, 59, 255), width=14)
+                  if i % 120 == 0 or i == total_frames - 1:
+                      print(f"⚡ رندر 2026 الحي: {i+1}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
 
-                  p_ad = ease_out_back(t_sc / 0.45)
-                  ad_scale = 0.95 if (0.33 <= prog_sc <= 0.39) else max(0.2, p_ad)
-                  paste_c(canvas, ui["s3_ad"], W/2, 330, ad_scale)
-
-                  if prog_sc < 0.40:
-                      cur_p = float(np.clip(prog_sc / 0.34, 0.0, 1.0))
-                      cx = int(760 - 540 * cur_p)
-                      cy = int(520 - 175 * cur_p)
-                      draw_cursor(dr, cx, cy, clicked=(prog_sc >= 0.33))
-
-                  if 0.36 <= prog_sc <= 0.52:
-                      fly_p = (prog_sc - 0.36) / 0.16
-                      orb_y = int(350 + 430 * fly_p)
-                      dr.line([(W//2, 350), (W//2, orb_y)], fill=(74, 222, 128, 255), width=10)
-                      dr.ellipse([W//2-24, orb_y-24, W//2+24, orb_y+24], fill=(74, 222, 128, 255), outline=(255,255,255,255), width=4)
-
-                  if prog_sc >= 0.48:
-                      dr.line([(W//2, 350), (W//2, 780)], fill=(74, 222, 128, 230), width=8)
-                      p_pop = ease_out_back((prog_sc - 0.48) * dur_sc / 0.45)
-                      paste_c(canvas, ui["s3_popup"], W/2, 780, max(0.2, p_pop))
-
-                  if prog_sc >= 0.64:
-                      dr.line([(W//2, 780), (W//2, 1220)], fill=(56, 189, 248, 230), width=8)
-                      p_wa = ease_out_back((prog_sc - 0.64) * dur_sc / 0.45)
-                      paste_c(canvas, ui["s3_wa_ok"], W/2, 1220, max(0.2, p_wa))
-
-              elif sc_idx == 3:
-                  canvas = bg_tech.copy()
-                  for idx_p, (pid, prog_start, py) in enumerate([("s4_p1", 0.02, 300), ("s4_p2", 0.16, 550), ("s4_p3", 0.30, 800)]):
-                      if prog_sc >= prog_start:
-                          pp = ease_out_back((prog_sc - prog_start) * dur_sc / 0.45)
-                          float_y = math.sin(t * 2.8 + idx_p) * 5.0
-                          paste_c(canvas, ui[pid], W/2, py + float_y, max(0.2, pp))
-
-                  feats = [("s4_f1", 0.44, 765, 1080), ("s4_f2", 0.52, 315, 1080), ("s4_f3", 0.60, 765, 1230), ("s4_f4", 0.68, 315, 1230)]
-                  for fid, df, fx, fy in feats:
-                      if prog_sc >= df:
-                          pf = ease_out_back((prog_sc - df) * dur_sc / 0.4)
-                          paste_c(canvas, ui[fid], fx, fy, max(0.2, pf))
-
-              else:
-                  canvas = bg_cta.copy()
-                  dr = ImageDraw.Draw(canvas)
-                  ph = ease_out_back(t_sc / 0.5)
-                  paste_c(canvas, ui["s5_hero"], W/2, 450 + math.sin(t*2.5)*6.0, max(0.2, ph))
-                  if prog_sc >= 0.20:
-                      pb = ease_out_back((prog_sc - 0.20) * dur_sc / 0.45)
-                      btn_click = 0.96 if (0.52 <= prog_sc <= 0.60) else max(0.2, pb)
-                      paste_c(canvas, ui["s5_btn"], W/2, 945, btn_click)
-                  if prog_sc >= 0.38:
-                      pl = ease_out_back((prog_sc - 0.38) * dur_sc / 0.45)
-                      paste_c(canvas, ui["s5_links"], W/2, 1200, max(0.2, pl))
-                  if prog_sc >= 0.42:
-                      cp = float(np.clip((prog_sc - 0.42) / 0.14, 0.0, 1.0))
-                      # وضع الماوس على الطرف الأيسر للزر بعيداً عن كلمة "الآن" حتى لا يطمسها!
-                      draw_cursor(dr, int(420 - 210*cp), int(1180 - 215*cp), clicked=(prog_sc >= 0.54))
-
-              # شريط التقدم العلوي (01/05 -> 05/05)
-              dr_top = ImageDraw.Draw(canvas)
-              seg_w = 170
-              for s_bar in range(5):
-                  bx = 85 + s_bar * (seg_w + 18)
-                  col_b = (74, 222, 128, 255) if s_bar < sc_idx else ((56, 189, 248, 255) if s_bar == sc_idx else (255, 255, 255, 45))
-                  dr_top.rounded_rectangle([bx, 65, bx + seg_w, 81], radius=8, fill=col_b)
-
-              cap_key = f"cap_{sc_idx+1}_a" if prog_sc < 0.50 else f"cap_{sc_idx+1}_b"
-              paste_c(canvas, ui[cap_key], W/2, 1660, 1.0)
-
-              if t_sc < 0.20 and sc_idx > 0:
-                  wipe_w = int(W * (1.0 - t_sc / 0.20))
-                  if wipe_w > 10:
-                      wipe_col = (56, 189, 248, 230) if sc_idx in (1, 3) else (16, 185, 129, 230)
-                      dr_top.rectangle([0, 0, wipe_w, H], fill=wipe_col)
-
-              # أخذ لقطة الفحص الذاتي عند اكتمال ظهور جميع عناصر المشهد (78% من مدة كل مشهد)
-              if abs(prog_sc - 0.78) < 0.025 and sc_idx not in qa_frames:
-                  qa_frames[sc_idx] = canvas.convert("RGB").resize((360, 640))
-
-              try:
-                  ffmpeg_proc.stdin.write(canvas.tobytes())
-              except BrokenPipeError:
-                  break
-
-              if i % 90 == 0 or i == total_frames - 1:
-                  print(f"⚡ تقدم الرندر: {i+1}/{total_frames} إطار ({time.time()-t0:.1f} ثانية)", flush=True)
+              browser.close()
 
           try:
               ffmpeg_proc.stdin.close()
@@ -708,21 +750,22 @@ jobs:
               pass
           ffmpeg_proc.wait()
 
-          print("🔍 [4/5] توليد لوحة الفحص البصري الذاتي للمشاهد الخمسة...", flush=True)
-          sheet = Image.new("RGB", (1800, 640), (9, 13, 24))
+          print("🔍 [4/4] تجميع لوحة الفحص الذاتي لنسخة 2026...", flush=True)
+          sheet = Image.new("RGB", (1800, 640), (5, 8, 17))
           for k in range(5):
-              if k in qa_frames:
-                  sheet.paste(qa_frames[k], (k * 360, 0))
-          sheet.save("QA_Inspection_Sheet.jpg", quality=92)
-          print("✅ [5/5] اكتمل إنتاج النسخة المصححة من إعلان TEKVIYO 2.0!", flush=True)
+              if k in qa_snapshots:
+                  im = Image.open(qa_snapshots[k]).resize((360, 640))
+                  sheet.paste(im, (k * 360, 0))
+          sheet.save("QA_2026_Inspection.jpg", quality=94)
+          print("✅ اكتمل إنتاج فيديو TEKVIYO 2026 بنجاح ساحق!", flush=True)
           EOF
-          python3 -u build_tekviyo_v2.py
+          python3 -u build_2026_studio.py
 
-      - name: 📦 4. رفع فيديو الإطلاق المصحح ولوحة الفحص
+      - name: 📦 4. رفع فيديو نسخة 2026 ولوحة الفحص
         uses: actions/upload-artifact@v4
         with:
-          name: 🚀-TEKVIYO-2.0-Clean-Launch
+          name: 🚀-TEKVIYO-2026-Kinetic-Edition
           path: |
-            TEKVIYO_2_Launch_Reel.mp4
-            QA_Inspection_Sheet.jpg
+            TEKVIYO_2026_Edition.mp4
+            QA_2026_Inspection.jpg
           retention-days: 30
